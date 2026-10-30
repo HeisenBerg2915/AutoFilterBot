@@ -1,0 +1,12 @@
+pyrogram==2.0.106
+TgCrypto
+motor
+pymongo
+python-dotenv
+aiohttp
+dnspython
+uvloop
+requests
+Pillow
+cachetools
+psutil
