@@ -1,19 +1,17 @@
 import re
 
-from pyrogram import filters
+from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from bot import app
 from database import files_col, stats_col
 from config import MAX_RESULTS
 
 
-@app.on_message(filters.group & filters.text)
+@Client.on_message(filters.group & filters.text)
 async def auto_filter(client, message):
 
     query = message.text.strip()
 
-    # Ignore commands
     if query.startswith("/"):
         return
 
@@ -32,7 +30,6 @@ async def auto_filter(client, message):
     if not results:
         return
 
-    # Update Search Counter
     await stats_col.update_one(
         {"_id": "bot_stats"},
         {"$inc": {"searches": 1}},
