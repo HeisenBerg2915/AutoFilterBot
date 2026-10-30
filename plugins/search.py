@@ -23,7 +23,6 @@ def get_file_buttons(client, results, session_id, page, total_pages):
         )
 
         file_size = file.get("file_size", 0) or 0
-
         size_mb = file_size / (1024 * 1024)
 
         if size_mb >= 1024:
@@ -31,10 +30,10 @@ def get_file_buttons(client, results, session_id, page, total_pages):
         else:
             size_text = f"{size_mb:.0f}MB"
 
-        chat_id = file.get("chat_id")
-        message_id = file.get("message_id")
+        # Use MongoDB document ID for a short Telegram deep link
+        document_id = str(file["_id"])
 
-        payload = f"file_{chat_id}_{message_id}"
+        payload = f"f_{document_id}"
 
         buttons.append([
             InlineKeyboardButton(
@@ -170,11 +169,13 @@ async def pagination_callback(client, callback_query):
 
     try:
         _, session_id, page = callback_query.data.split(":")
-
         page = int(page)
 
     except (ValueError, AttributeError):
-        await callback_query.answer("Invalid Page!", show_alert=True)
+        await callback_query.answer(
+            "Invalid Page!",
+            show_alert=True
+        )
         return
 
     session = await search_sessions_col.find_one({
@@ -189,7 +190,10 @@ async def pagination_callback(client, callback_query):
         return
 
     if callback_query.message.chat.id != session["chat_id"]:
-        await callback_query.answer("Invalid Session!", show_alert=True)
+        await callback_query.answer(
+            "Invalid Session!",
+            show_alert=True
+        )
         return
 
     await callback_query.answer()
