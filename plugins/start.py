@@ -1,3 +1,5 @@
+from bson import ObjectId
+
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -39,9 +41,25 @@ async def start_command(client, message):
 
         payload = message.command[1]
 
-        if payload.startswith("file_"):
+        try:
+            file = None
 
-            try:
+            # NEW FILE-ID METHOD
+            if payload.startswith("f_"):
+
+                document_id = payload[2:]
+
+                if not ObjectId.is_valid(document_id):
+                    await message.reply_text("❌ Invalid File Link!")
+                    return
+
+                file = await files_col.find_one({
+                    "_id": ObjectId(document_id)
+                })
+
+            # OLD LINK COMPATIBILITY
+            elif payload.startswith("file_"):
+
                 parts = payload.split("_", 2)
 
                 if len(parts) != 3:
@@ -56,39 +74,41 @@ async def start_command(client, message):
                     "message_id": message_id
                 })
 
-                if not file:
-                    await message.reply_text("❌ File Not Found!")
-                    return
+            if file is not None:
 
-                # USE TELEGRAM FILE ID
                 file_id = file.get("file_id")
 
-                if file_id:
-                    await client.send_cached_media(
-                        chat_id=user_id,
-                        file_id=file_id
+                if not file_id:
+                    await message.reply_text(
+                        "❌ File ID not available.\n\n"
+                        "Admin needs to re-index this file."
                     )
+                    return
 
-                else:
-                    # FALLBACK: COPY ORIGINAL MESSAGE
-                    await client.copy_message(
-                        chat_id=user_id,
-                        from_chat_id=chat_id,
-                        message_id=message_id
-                    )
-
-                return
-
-            except Exception as e:
-
-                print(f"File Delivery Error: {type(e).__name__}: {e}")
-
-                await message.reply_text(
-                    "❌ Unable to Send File.\n\n"
-                    "Please contact the bot admin."
+                await client.send_cached_media(
+                    chat_id=user_id,
+                    file_id=file_id
                 )
 
                 return
+
+            if payload.startswith(("f_", "file_")):
+                await message.reply_text("❌ File Not Found!")
+                return
+
+        except Exception as e:
+
+            print(
+                f"File Delivery Error: "
+                f"{type(e).__name__}: {e}"
+            )
+
+            await message.reply_text(
+                "❌ Unable to Send File.\n\n"
+                "Please contact the bot admin."
+            )
+
+            return
 
     # NORMAL START MESSAGE
     text = (
