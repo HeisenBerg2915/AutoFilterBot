@@ -5,7 +5,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot import app
 from database import files_col, stats_col
-from config import BOT_USERNAME, MAX_RESULTS
+from config import MAX_RESULTS
 
 
 @app.on_message(filters.group & filters.text & ~filters.command)
@@ -15,13 +15,6 @@ async def auto_filter(client, message):
 
     if len(query) < 2:
         return
-
-    # Update Search Counter
-    await stats_col.update_one(
-        {"_id": "bot_stats"},
-        {"$inc": {"searches": 1}},
-        upsert=True
-    )
 
     # Search MongoDB
     pattern = re.escape(query)
@@ -36,6 +29,15 @@ async def auto_filter(client, message):
     if not results:
         return
 
+    # Update Search Counter
+    await stats_col.update_one(
+        {"_id": "bot_stats"},
+        {"$inc": {"searches": 1}},
+        upsert=True
+    )
+
+    me = await client.get_me()
+
     buttons = []
 
     for file in results:
@@ -46,11 +48,14 @@ async def auto_filter(client, message):
             or "Unknown File"
         )
 
+        chat_id = file.get("chat_id")
         message_id = file.get("message_id")
 
+        payload = f"file_{chat_id}_{message_id}"
+
         button = InlineKeyboardButton(
-            text=f"📁 {file_name[:40]}",
-            url=f"https://t.me/{BOT_USERNAME}?start=file_{message_id}"
+            text=f"📁 {file_name[:35]}",
+            url=f"https://t.me/{me.username}?start={payload}"
         )
 
         buttons.append([button])
