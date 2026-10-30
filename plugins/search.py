@@ -8,15 +8,18 @@ from database import files_col, stats_col
 from config import MAX_RESULTS
 
 
-@app.on_message(filters.group & filters.text & ~filters.command)
+@app.on_message(filters.group & filters.text)
 async def auto_filter(client, message):
 
     query = message.text.strip()
 
+    # Ignore commands
+    if query.startswith("/"):
+        return
+
     if len(query) < 2:
         return
 
-    # Search MongoDB
     pattern = re.escape(query)
 
     results = await files_col.find({
@@ -53,12 +56,12 @@ async def auto_filter(client, message):
 
         payload = f"file_{chat_id}_{message_id}"
 
-        button = InlineKeyboardButton(
-            text=f"📁 {file_name[:35]}",
-            url=f"https://t.me/{me.username}?start={payload}"
-        )
-
-        buttons.append([button])
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"📁 {file_name[:35]}",
+                url=f"https://t.me/{me.username}?start={payload}"
+            )
+        ])
 
     await message.reply_text(
         f"🔎 Search Results: {query}\n\n"
