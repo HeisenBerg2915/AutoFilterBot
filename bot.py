@@ -1,14 +1,14 @@
 import os
 import asyncio
+import signal
 
 from aiohttp import web
-from pyrogram import Client, idle
+from pyrogram import Client
 
 from config import API_ID, API_HASH, BOT_TOKEN
 from database import init_db, close_db
 
 
-# Telegram Bot
 app = Client(
     "AutoFilterBot",
     api_id=API_ID,
@@ -18,7 +18,6 @@ app = Client(
 )
 
 
-# Web Server
 async def home(request):
     return web.Response(
         text="Auto Filter Bot is Running! 🚀"
@@ -51,12 +50,22 @@ async def start_web_server():
     return runner
 
 
-# Main Function
 async def main():
 
     runner = None
+    bot_started = False
+
+    loop = asyncio.get_running_loop()
+    stop_event = asyncio.Event()
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(
+            sig,
+            stop_event.set
+        )
 
     try:
+
         print("Connecting MongoDB...")
 
         await init_db()
@@ -68,20 +77,25 @@ async def main():
         print("Starting Telegram Bot...")
 
         await app.start()
+        bot_started = True
 
         me = await app.get_me()
 
         print("Bot Started Successfully!")
         print(f"Bot Username: @{me.username}")
 
-        await idle()
+        print("Bot is waiting for messages...")
+
+        await stop_event.wait()
 
     except Exception as e:
+
         print(f"Bot Error: {e}")
+        raise
 
     finally:
 
-        if app.is_connected:
+        if bot_started:
             await app.stop()
 
         if runner:
