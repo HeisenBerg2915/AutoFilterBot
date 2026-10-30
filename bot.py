@@ -1,21 +1,15 @@
 import os
 import asyncio
-import signal
 
 from aiohttp import web
-from pyrogram import Client
+from pyrogram import Client, idle
 
 from config import API_ID, API_HASH, BOT_TOKEN
 from database import init_db, close_db
 
 
-app = Client(
-    "AutoFilterBot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
-    plugins={"root": "plugins"}
-)
+# Global Client
+app = None
 
 
 async def home(request):
@@ -52,17 +46,10 @@ async def start_web_server():
 
 async def main():
 
+    global app
+
     runner = None
     bot_started = False
-
-    loop = asyncio.get_running_loop()
-    stop_event = asyncio.Event()
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(
-            sig,
-            stop_event.set
-        )
 
     try:
 
@@ -74,9 +61,21 @@ async def main():
 
         runner = await start_web_server()
 
+        print("Creating Telegram Client...")
+
+        # Create Client inside the running event loop
+        app = Client(
+            "AutoFilterBot",
+            api_id=API_ID,
+            api_hash=API_HASH,
+            bot_token=BOT_TOKEN,
+            plugins={"root": "plugins"}
+        )
+
         print("Starting Telegram Bot...")
 
         await app.start()
+
         bot_started = True
 
         me = await app.get_me()
@@ -86,7 +85,7 @@ async def main():
 
         print("Bot is waiting for messages...")
 
-        await stop_event.wait()
+        await idle()
 
     except Exception as e:
 
