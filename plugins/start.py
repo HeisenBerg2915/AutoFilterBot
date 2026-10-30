@@ -11,6 +11,7 @@ async def start_command(client, message):
     user = message.from_user
     user_id = user.id
 
+    # REGISTER USER
     old_user = await users_col.find_one({"id": user_id})
 
     if not old_user:
@@ -34,7 +35,6 @@ async def start_command(client, message):
                 print(f"Log Error: {e}")
 
     # PRIVATE FILE DELIVERY
-
     if len(message.command) > 1:
 
         payload = message.command[1]
@@ -57,31 +57,40 @@ async def start_command(client, message):
                 })
 
                 if not file:
-                    await message.reply_text(
-                        "❌ File Not Found!"
-                    )
+                    await message.reply_text("❌ File Not Found!")
                     return
 
-                await client.copy_message(
-                    chat_id=user_id,
-                    from_chat_id=chat_id,
-                    message_id=message_id
-                )
+                # USE TELEGRAM FILE ID
+                file_id = file.get("file_id")
+
+                if file_id:
+                    await client.send_cached_media(
+                        chat_id=user_id,
+                        file_id=file_id
+                    )
+
+                else:
+                    # FALLBACK: COPY ORIGINAL MESSAGE
+                    await client.copy_message(
+                        chat_id=user_id,
+                        from_chat_id=chat_id,
+                        message_id=message_id
+                    )
 
                 return
 
             except Exception as e:
 
-                print(f"File Delivery Error: {e}")
+                print(f"File Delivery Error: {type(e).__name__}: {e}")
 
                 await message.reply_text(
-                    "❌ Unable to Send File."
+                    "❌ Unable to Send File.\n\n"
+                    "Please contact the bot admin."
                 )
 
                 return
 
     # NORMAL START MESSAGE
-
     text = (
         f"👋 Hello {user.mention}!\n\n"
         "🎬 Welcome to Auto Filter Bot!\n\n"
