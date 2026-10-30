@@ -1,8 +1,8 @@
 from pyrogram import Client, filters
 
-from database import files_col
 from config import FILE_CHANNEL
 from helpers.episode_filter import is_tv_episode
+from helpers.database_router import save_file_to_databases
 
 
 @Client.on_message(filters.channel)
@@ -37,7 +37,7 @@ async def save_channel_files(client, message):
         file_data = {
             "file_id": media.file_id,
             "file_unique_id": media.file_unique_id,
-            "file_name": getattr(media, "file_name", None),
+            "file_name": file_name,
             "file_size": media.file_size,
             "mime_type": getattr(media, "mime_type", None),
             "file_type": media_type,
@@ -47,11 +47,14 @@ async def save_channel_files(client, message):
             "date": message.date
         }
 
-        await files_col.update_one(
-            {"file_unique_id": media.file_unique_id},
-            {"$set": file_data},
-            upsert=True
+        saved_count = await save_file_to_databases(
+            file_data,
+            target="db1"
         )
 
-        print(f"File Saved: {media_type}")
+        if saved_count:
+            print(f"File Saved: {file_name or media_type}")
+        else:
+            print("File Save Failed: No database available")
+
         break
