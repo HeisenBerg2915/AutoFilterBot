@@ -1,17 +1,9 @@
 from pyrogram import filters
-from pyrogram.types import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton
-)
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot import app
-from database import users_col
-from config import (
-    BOT_USERNAME,
-    LOG_CHANNEL,
-    UPDATE_CHANNEL,
-    UPDATE_GROUP
-)
+from database import users_col, files_col
+from config import LOG_CHANNEL, UPDATE_CHANNEL, UPDATE_GROUP
 
 
 @app.on_message(filters.command("start") & filters.private)
@@ -20,12 +12,47 @@ async def start_command(client, message):
     user = message.from_user
     user_id = user.id
 
-    # Check Existing User
+    # Deep Link File Delivery
+    if len(message.command) > 1:
+
+        payload = message.command[1]
+
+        if payload.startswith("file_"):
+
+            try:
+                file_message_id = int(payload.replace("file_", ""))
+
+                file = await files_col.find_one({
+                    "message_id": file_message_id
+                })
+
+                if not file:
+                    await message.reply_text(
+                        "❌ Sorry! File not found."
+                    )
+                    return
+
+                await client.copy_message(
+                    chat_id=user_id,
+                    from_chat_id=file["chat_id"],
+                    message_id=file["message_id"]
+                )
+
+                return
+
+            except Exception as e:
+                print(f"File Error: {e}")
+
+                await message.reply_text(
+                    "❌ Unable to send this file."
+                )
+                return
+
+    # Check New User
     old_user = await users_col.find_one({"id": user_id})
 
     if not old_user:
 
-        # Save New User
         await users_col.insert_one({
             "id": user_id,
             "first_name": user.first_name,
@@ -33,8 +60,9 @@ async def start_command(client, message):
             "is_bot": user.is_bot
         })
 
-        # New User Log
+        # Log Channel
         if LOG_CHANNEL:
+
             try:
                 await client.send_message(
                     LOG_CHANNEL,
@@ -43,6 +71,7 @@ async def start_command(client, message):
                     f"🆔 ID: `{user_id}`\n"
                     f"📛 Username: @{user.username or 'None'}"
                 )
+
             except Exception as e:
                 print(f"Log Error: {e}")
 
@@ -55,12 +84,11 @@ async def start_command(client, message):
         "👇 Use the buttons below!"
     )
 
-    # Buttons
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
                 "➕ Add Me To Your Group",
-                url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
+                url=f"https://t.me/{client.me.username}?startgroup=true"
             )
         ],
         [
