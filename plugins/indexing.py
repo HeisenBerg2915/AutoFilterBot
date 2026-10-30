@@ -331,10 +331,9 @@ async def run_indexing(
 
         async for msg in client.iter_messages(
             source_chat_id,
-            reverse=True
+            last_message_id
+            offset=1
         ):
-            if msg.id > last_message_id:
-                break
 
             if request.get("cancel"):
                 break
