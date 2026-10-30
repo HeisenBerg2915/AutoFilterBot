@@ -12,43 +12,7 @@ async def start_command(client, message):
     user = message.from_user
     user_id = user.id
 
-    # Deep Link File Delivery
-    if len(message.command) > 1:
-
-        payload = message.command[1]
-
-        if payload.startswith("file_"):
-
-            try:
-                file_message_id = int(payload.replace("file_", ""))
-
-                file = await files_col.find_one({
-                    "message_id": file_message_id
-                })
-
-                if not file:
-                    await message.reply_text(
-                        "❌ Sorry! File not found."
-                    )
-                    return
-
-                await client.copy_message(
-                    chat_id=user_id,
-                    from_chat_id=file["chat_id"],
-                    message_id=file["message_id"]
-                )
-
-                return
-
-            except Exception as e:
-                print(f"File Error: {e}")
-
-                await message.reply_text(
-                    "❌ Unable to send this file."
-                )
-                return
-
-    # Check New User
+    # Register User
     old_user = await users_col.find_one({"id": user_id})
 
     if not old_user:
@@ -60,9 +24,8 @@ async def start_command(client, message):
             "is_bot": user.is_bot
         })
 
-        # Log Channel
+        # New User Log
         if LOG_CHANNEL:
-
             try:
                 await client.send_message(
                     LOG_CHANNEL,
@@ -71,9 +34,50 @@ async def start_command(client, message):
                     f"🆔 ID: `{user_id}`\n"
                     f"📛 Username: @{user.username or 'None'}"
                 )
-
             except Exception as e:
                 print(f"Log Error: {e}")
+
+    # Deep Link File Delivery
+    if len(message.command) > 1:
+
+        payload = message.command[1]
+
+        if payload.startswith("file_"):
+
+            try:
+                parts = payload.split("_", 2)
+
+                chat_id = int(parts[1])
+                message_id = int(parts[2])
+
+                file = await files_col.find_one({
+                    "chat_id": chat_id,
+                    "message_id": message_id
+                })
+
+                if not file:
+                    await message.reply_text(
+                        "❌ File Not Found!"
+                    )
+                    return
+
+                await client.copy_message(
+                    chat_id=user_id,
+                    from_chat_id=chat_id,
+                    message_id=message_id
+                )
+
+                return
+
+            except Exception as e:
+                print(f"File Delivery Error: {e}")
+
+                await message.reply_text(
+                    "❌ Unable to Send File.\n"
+                    "Please Try Again Later."
+                )
+
+                return
 
     # Welcome Message
     text = (
