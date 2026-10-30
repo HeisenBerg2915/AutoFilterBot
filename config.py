@@ -32,7 +32,7 @@ ADMINS = [
 ]
 
 # Channel & Group Configuration
-LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", "0"))
+LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", "-1004329564715"))
 UPDATE_CHANNEL = os.getenv("UPDATE_CHANNEL", "")
 UPDATE_GROUP = os.getenv("UPDATE_GROUP", "")
 
