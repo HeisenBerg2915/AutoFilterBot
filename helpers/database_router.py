@@ -31,3 +31,25 @@ def get_target_collections(target="db1"):
         return []
 
     return [collection]
+
+
+async def save_file_to_databases(file_data, target="db1"):
+
+    collections = get_target_collections(target)
+
+    if not collections:
+        return 0
+
+    saved_count = 0
+
+    for collection in collections:
+
+        await collection.update_one(
+            {"file_unique_id": file_data["file_unique_id"]},
+            {"$set": file_data},
+            upsert=True
+        )
+
+        saved_count += 1
+
+    return saved_count
