@@ -177,6 +177,16 @@ async def select_index_database(client, query):
                 "video_note"
             ]
 
+                        if request.get("cancelled"):
+                request["status"] = "cancelled"
+                await query.message.edit_text(
+                    query.message.text
+                    + "\n\n🛑 Indexing Cancelled"
+                    + f"\n📁 Indexed: `{indexed}`"
+                    + f"\n⏭️ Skipped: `{skipped}`"
+                )
+                return
+
             media = None
             media_type = None
 
@@ -240,3 +250,22 @@ async def select_index_database(client, query):
             + f"\n\n❌ **Indexing Failed**"
             + f"\nError: `{str(e)[:500]}`"
         )
+
+@Client.on_callback_query(
+    filters.regex(r"^idx_cancel:")
+)
+async def cancel_indexing(client, query):
+
+    if not query.from_user or query.from_user.id not in ADMINS:
+        await query.answer("⛔ Access Denied", show_alert=True)
+        return
+
+    request_id = query.data.split(":", 1)[1]
+    request = index_requests.get(request_id)
+
+    if not request or request["status"] != "indexing":
+        await query.answer("Indexing ഇപ്പോൾ പ്രവർത്തിക്കുന്നില്ല.", show_alert=True)
+        return
+
+    request["cancelled"] = True
+    await query.answer("Cancel Request Sent")
