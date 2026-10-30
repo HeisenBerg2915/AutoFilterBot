@@ -1,9 +1,9 @@
-from pyrogram import filters
-from bot import app
+from pyrogram import Client, filters
+
 from database import groups_col
 
 
-@app.on_message(filters.group)
+@Client.on_message(filters.group, group=1)
 async def save_group(client, message):
 
     chat = message.chat
@@ -22,7 +22,7 @@ async def save_group(client, message):
     )
 
 
-@app.on_message(filters.command("id") & filters.group)
+@Client.on_message(filters.command("id") & filters.group)
 async def group_id(client, message):
 
     await message.reply_text(
