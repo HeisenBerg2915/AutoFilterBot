@@ -143,6 +143,7 @@ async def select_index_database(client, query):
 
     request["database"] = database
     request["status"] = "indexing"
+    request["cancelled"] = False
 
     await query.answer("Indexing Started")
 
