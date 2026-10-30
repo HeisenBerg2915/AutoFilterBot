@@ -4,7 +4,7 @@ from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot import app
-from database import files_col
+from database import files_col, stats_col
 from config import BOT_USERNAME, MAX_RESULTS
 
 
@@ -15,6 +15,13 @@ async def auto_filter(client, message):
 
     if len(query) < 2:
         return
+
+    # Update Search Counter
+    await stats_col.update_one(
+        {"_id": "bot_stats"},
+        {"$inc": {"searches": 1}},
+        upsert=True
+    )
 
     # Search MongoDB
     pattern = re.escape(query)
