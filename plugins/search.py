@@ -58,10 +58,12 @@ async def auto_filter(client, message):
         chat_id = file.get("chat_id")
         message_id = file.get("message_id")
 
+        payload = f"file_{chat_id}_{message_id}"
+
         buttons.append([
             InlineKeyboardButton(
                 text=f"{size_text} ➠ {file_name}",
-                url=f"https://t.me/c/{str(chat_id)[4:]}/{message_id}"
+                url=f"https://t.me/{client.me.username}?start={payload}"
             )
         ])
 
