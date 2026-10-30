@@ -1,11 +1,15 @@
 import re
+from datetime import datetime
+from uuid import uuid4
 
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from database import files_col, stats_col
+from database import files_col, stats_col, search_sessions_col
 from config import MAX_RESULTS
 
+PAGE_SIZE = 8
+SESSION_TIMEOUT = 7200
 
 @Client.on_message(filters.group & filters.text)
 async def auto_filter(client, message):
