@@ -2,6 +2,7 @@ from pyrogram import Client, filters
 
 from database import files_col
 from config import FILE_CHANNEL
+from helpers.episode_filter import is_tv_episode
 
 
 @Client.on_message(filters.channel)
@@ -25,6 +26,12 @@ async def save_channel_files(client, message):
         media = getattr(message, media_type, None)
 
         if not media:
+            continue
+
+                file_name = getattr(media, "file_name", None)
+
+        if is_tv_episode(file_name):
+            print(f"TV Episode Skipped: {file_name}")
             continue
 
         file_data = {
