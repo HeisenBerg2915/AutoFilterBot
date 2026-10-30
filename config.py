@@ -9,8 +9,18 @@ API_HASH = os.getenv("API_HASH", "")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 # MongoDB Configuration
+
+# EXISTING DATABASE - DO NOT CHANGE
 MONGO_URL = os.getenv("MONGO_URL", "")
 DB_NAME = os.getenv("DB_NAME", "autofilter")
+
+# NEW DATABASE 2
+MONGO_URL2 = os.getenv("MONGO_URL2", "")
+DB_NAME2 = os.getenv("DB_NAME2", "autofilter_db2")
+
+# NEW DATABASE 3
+MONGO_URL3 = os.getenv("MONGO_URL3", "")
+DB_NAME3 = os.getenv("DB_NAME3", "autofilter_db3")
 
 # Bot Configuration
 BOT_USERNAME = os.getenv("BOT_USERNAME", "")
