@@ -1,10 +1,10 @@
-from pyrogram import filters
-from bot import app
+from pyrogram import Client, filters
+
 from database import files_col
 from config import FILE_CHANNEL
 
 
-@app.on_message(filters.channel)
+@Client.on_message(filters.channel)
 async def save_channel_files(client, message):
 
     if FILE_CHANNEL and message.chat.id != FILE_CHANNEL:
@@ -47,5 +47,4 @@ async def save_channel_files(client, message):
         )
 
         print(f"File Saved: {media_type}")
-
         break
