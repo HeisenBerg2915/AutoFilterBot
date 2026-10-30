@@ -4,12 +4,20 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import LOG_CHANNEL, ADMINS
-from helpers.database_router import save_file_to_databases
+from helpers.database_router import (
+    save_file_to_databases,
+    get_target_collections
+)
 from helpers.episode_filter import is_tv_episode
 
 
+# Temporary request storage
 index_requests = {}
 
+
+# ----------------------------------
+# SEND INDEXING REQUEST
+# ----------------------------------
 
 @Client.on_message(filters.command("index") & filters.private)
 async def index_request(client, message):
@@ -27,13 +35,15 @@ async def index_request(client, message):
         return
 
     channel_link = message.text.split(maxsplit=1)[1].strip()
+
     request_id = uuid4().hex[:10]
 
     index_requests[request_id] = {
         "user_id": message.from_user.id,
         "channel": channel_link,
         "status": "pending",
-        "database": None
+        "database": None,
+        "cancelled": False
     }
 
     buttons = InlineKeyboardMarkup([
@@ -49,20 +59,35 @@ async def index_request(client, message):
         ]
     ])
 
-    await client.send_message(
-        LOG_CHANNEL,
-        f"📥 **New Indexing Request**\n\n"
-        f"👤 User: {message.from_user.mention}\n"
-        f"🆔 User ID: `{message.from_user.id}`\n"
-        f"🔗 Channel: `{channel_link}`\n"
-        f"📝 Request ID: `{request_id}`",
-        reply_markup=buttons
-    )
+    try:
+        await client.send_message(
+            LOG_CHANNEL,
+            f"📥 **New Indexing Request**\n\n"
+            f"👤 User: {message.from_user.mention}\n"
+            f"🆔 User ID: `{message.from_user.id}`\n"
+            f"🔗 Channel: `{channel_link}`\n"
+            f"📝 Request ID: `{request_id}`",
+            reply_markup=buttons
+        )
 
-    await message.reply_text(
-        "✅ Indexing Request Moderator-ന് അയച്ചു."
-    )
+        await message.reply_text(
+            "✅ Indexing Request Moderator-ന് അയച്ചു."
+        )
 
+    except Exception as e:
+
+        index_requests.pop(request_id, None)
+
+        print(f"Index Request Error: {e}")
+
+        await message.reply_text(
+            "❌ Request അയക്കാൻ കഴിഞ്ഞില്ല."
+        )
+
+
+# ----------------------------------
+# ACCEPT / REJECT REQUEST
+# ----------------------------------
 
 @Client.on_callback_query(
     filters.regex(r"^idx_(accept|reject):")
@@ -77,6 +102,7 @@ async def indexing_approval(client, query):
         return
 
     action, request_id = query.data.split(":", 1)
+
     request = index_requests.get(request_id)
 
     if not request or request["status"] != "pending":
@@ -87,10 +113,11 @@ async def indexing_approval(client, query):
         return
 
     if action == "reject":
+
         request["status"] = "rejected"
 
         await query.message.edit_text(
-            query.message.text + "\n\n❌ Request Rejected",
+            query.message.text + "\n\n❌ **Request Rejected**",
             reply_markup=None
         )
 
@@ -101,22 +128,40 @@ async def indexing_approval(client, query):
 
     buttons = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("DB1", callback_data=f"idx_db:db1:{request_id}"),
-            InlineKeyboardButton("DB2", callback_data=f"idx_db:db2:{request_id}")
+            InlineKeyboardButton(
+                "DB1",
+                callback_data=f"idx_db:db1:{request_id}"
+            ),
+            InlineKeyboardButton(
+                "DB2",
+                callback_data=f"idx_db:db2:{request_id}"
+            )
         ],
         [
-            InlineKeyboardButton("DB3", callback_data=f"idx_db:db3:{request_id}"),
-            InlineKeyboardButton("ALL DATABASES", callback_data=f"idx_db:all:{request_id}")
+            InlineKeyboardButton(
+                "DB3",
+                callback_data=f"idx_db:db3:{request_id}"
+            ),
+            InlineKeyboardButton(
+                "ALL DATABASES",
+                callback_data=f"idx_db:all:{request_id}"
+            )
         ]
     ])
 
     await query.message.edit_text(
-        query.message.text + "\n\n✅ Request Accepted\n🗄️ Database തിരഞ്ഞെടുക്കുക:",
+        query.message.text
+        + "\n\n✅ Request Accepted"
+        + "\n🗄️ Database തിരഞ്ഞെടുക്കുക:",
         reply_markup=buttons
     )
 
     await query.answer("Select Database")
 
+
+# ----------------------------------
+# DATABASE SELECTION
+# ----------------------------------
 
 @Client.on_callback_query(
     filters.regex(r"^idx_db:(db1|db2|db3|all):")
@@ -141,56 +186,99 @@ async def select_index_database(client, query):
         )
         return
 
+    # Check database availability
+    collections = get_target_collections(database)
+
+    if not collections:
+        await query.answer(
+            f"❌ {database.upper()} Database ലഭ്യമല്ല!",
+            show_alert=True
+        )
+        return
+
     request["database"] = database
     request["status"] = "indexing"
     request["cancelled"] = False
 
     await query.answer("Indexing Started")
 
+    cancel_button = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🛑 CANCEL INDEXING",
+                callback_data=f"idx_cancel:{request_id}"
+            )
+        ]
+    ])
+
     await query.message.edit_text(
-        query.message.text + "\n\n⏳ Indexing ആരംഭിക്കുന്നു..."
+        query.message.text
+        + "\n\n⏳ **Indexing Started**"
+        + f"\n🗄️ Database: `{database.upper()}`"
+        + "\n📁 Indexed: `0`"
+        + "\n⏭️ Skipped: `0`",
+        reply_markup=cancel_button
     )
 
+    indexed = 0
+    skipped = 0
+    checked = 0
+
     try:
+
         channel = request["channel"]
 
+        # Normalize public Telegram links
         if channel.startswith("https://t.me/"):
-            channel = channel.replace("https://t.me/", "").strip("/")
-        
+            channel = channel.replace(
+                "https://t.me/", ""
+            ).strip("/")
+
+        elif channel.startswith("http://t.me/"):
+            channel = channel.replace(
+                "http://t.me/", ""
+            ).strip("/")
+
         if channel.startswith("@"):
             channel = channel[1:]
 
+        # Public channel lookup
         chat = await client.get_chat(channel)
 
-        indexed = 0
-        skipped = 0
+        media_types = [
+            "document",
+            "video",
+            "audio",
+            "animation",
+            "photo",
+            "voice",
+            "video_note"
+        ]
 
         async for msg in client.get_chat_history(chat.id):
 
-            media_types = [
-                "document",
-                "video",
-                "audio",
-                "animation",
-                "photo",
-                "voice",
-                "video_note"
-            ]
+            # CANCEL CHECK
+            if request.get("cancelled"):
 
-                        if request.get("cancelled"):
                 request["status"] = "cancelled"
+
                 await query.message.edit_text(
                     query.message.text
-                    + "\n\n🛑 Indexing Cancelled"
+                    + "\n\n🛑 **Indexing Cancelled**"
                     + f"\n📁 Indexed: `{indexed}`"
-                    + f"\n⏭️ Skipped: `{skipped}`"
+                    + f"\n⏭️ Skipped: `{skipped}`",
+                    reply_markup=None
                 )
+
                 return
+
+            checked += 1
 
             media = None
             media_type = None
 
             for item in media_types:
+
                 value = getattr(msg, item, None)
 
                 if value:
@@ -202,9 +290,14 @@ async def select_index_database(client, query):
                 continue
 
             file_name = getattr(media, "file_name", None)
+
             caption = msg.caption or ""
 
-            if is_tv_episode(file_name or caption):
+            # Episode filter checks both filename and caption
+            episode_text = f"{file_name or ''} {caption}"
+
+            if is_tv_episode(episode_text):
+
                 skipped += 1
                 continue
 
@@ -212,7 +305,7 @@ async def select_index_database(client, query):
                 "file_id": media.file_id,
                 "file_unique_id": media.file_unique_id,
                 "file_name": file_name,
-                "file_size": media.file_size,
+                "file_size": getattr(media, "file_size", 0),
                 "mime_type": getattr(media, "mime_type", None),
                 "file_type": media_type,
                 "caption": caption,
@@ -229,14 +322,29 @@ async def select_index_database(client, query):
             if saved:
                 indexed += 1
 
+            # LIVE PROGRESS UPDATE
+            if checked % 100 == 0:
+
+                await query.message.edit_text(
+                    f"⏳ **Indexing In Progress**"
+                    f"\n\n🔗 Channel: `{chat.title}`"
+                    f"\n🗄️ Database: `{database.upper()}`"
+                    f"\n📁 Indexed: `{indexed}`"
+                    f"\n⏭️ Skipped: `{skipped}`"
+                    f"\n🔍 Checked: `{checked}`",
+                    reply_markup=cancel_button
+                )
+
         request["status"] = "completed"
 
         await query.message.edit_text(
-            query.message.text
-            + f"\n\n✅ **Indexing Completed**"
-            + f"\n📁 Indexed: `{indexed}`"
-            + f"\n⏭️ TV Episodes Skipped: `{skipped}`"
-            + f"\n🗄️ Database: `{database.upper()}`"
+            f"✅ **Indexing Completed**"
+            f"\n\n🔗 Channel: `{chat.title}`"
+            f"\n🗄️ Database: `{database.upper()}`"
+            f"\n📁 Indexed: `{indexed}`"
+            f"\n⏭️ TV Episodes Skipped: `{skipped}`"
+            f"\n🔍 Messages Checked: `{checked}`",
+            reply_markup=None
         )
 
     except Exception as e:
@@ -246,10 +354,17 @@ async def select_index_database(client, query):
         print(f"Indexing Error: {e}")
 
         await query.message.edit_text(
-            query.message.text
-            + f"\n\n❌ **Indexing Failed**"
-            + f"\nError: `{str(e)[:500]}`"
+            f"❌ **Indexing Failed**"
+            f"\n\nError: `{str(e)[:500]}`"
+            f"\n📁 Indexed: `{indexed}`"
+            f"\n⏭️ Skipped: `{skipped}`",
+            reply_markup=None
         )
+
+
+# ----------------------------------
+# CANCEL INDEXING
+# ----------------------------------
 
 @Client.on_callback_query(
     filters.regex(r"^idx_cancel:")
@@ -257,15 +372,26 @@ async def select_index_database(client, query):
 async def cancel_indexing(client, query):
 
     if not query.from_user or query.from_user.id not in ADMINS:
-        await query.answer("⛔ Access Denied", show_alert=True)
+        await query.answer(
+            "⛔ Access Denied",
+            show_alert=True
+        )
         return
 
     request_id = query.data.split(":", 1)[1]
+
     request = index_requests.get(request_id)
 
     if not request or request["status"] != "indexing":
-        await query.answer("Indexing ഇപ്പോൾ പ്രവർത്തിക്കുന്നില്ല.", show_alert=True)
+
+        await query.answer(
+            "Indexing ഇപ്പോൾ പ്രവർത്തിക്കുന്നില്ല.",
+            show_alert=True
+        )
         return
 
     request["cancelled"] = True
-    await query.answer("Cancel Request Sent")
+
+    await query.answer(
+        "🛑 Cancel Request Sent"
+    )
