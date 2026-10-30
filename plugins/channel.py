@@ -28,7 +28,7 @@ async def save_channel_files(client, message):
         if not media:
             continue
 
-                file_name = getattr(media, "file_name", None)
+        file_name = getattr(media, "file_name", None)
 
         if is_tv_episode(file_name):
             print(f"TV Episode Skipped: {file_name}")
