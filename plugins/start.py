@@ -33,6 +33,8 @@ async def start_command(client, message):
             except Exception as e:
                 print(f"Log Error: {e}")
 
+    # PRIVATE FILE DELIVERY
+
     if len(message.command) > 1:
 
         payload = message.command[1]
@@ -41,6 +43,10 @@ async def start_command(client, message):
 
             try:
                 parts = payload.split("_", 2)
+
+                if len(parts) != 3:
+                    await message.reply_text("❌ Invalid File Link!")
+                    return
 
                 chat_id = int(parts[1])
                 message_id = int(parts[2])
@@ -51,7 +57,9 @@ async def start_command(client, message):
                 })
 
                 if not file:
-                    await message.reply_text("❌ File Not Found!")
+                    await message.reply_text(
+                        "❌ File Not Found!"
+                    )
                     return
 
                 await client.copy_message(
@@ -63,9 +71,16 @@ async def start_command(client, message):
                 return
 
             except Exception as e:
+
                 print(f"File Delivery Error: {e}")
-                await message.reply_text("❌ Unable to Send File.")
+
+                await message.reply_text(
+                    "❌ Unable to Send File."
+                )
+
                 return
+
+    # NORMAL START MESSAGE
 
     text = (
         f"👋 Hello {user.mention}!\n\n"
@@ -81,12 +96,24 @@ async def start_command(client, message):
             )
         ],
         [
-            InlineKeyboardButton("👥 Join To Group", url=UPDATE_GROUP),
-            InlineKeyboardButton("📢 Join To Channel", url=UPDATE_CHANNEL)
+            InlineKeyboardButton(
+                "👥 Join To Group",
+                url=UPDATE_GROUP
+            ),
+            InlineKeyboardButton(
+                "📢 Join To Channel",
+                url=UPDATE_CHANNEL
+            )
         ],
         [
-            InlineKeyboardButton("📊 Stats", callback_data="stats")
+            InlineKeyboardButton(
+                "📊 Stats",
+                callback_data="stats"
+            )
         ]
     ])
 
-    await message.reply_text(text, reply_markup=buttons)
+    await message.reply_text(
+        text,
+        reply_markup=buttons
+    )
