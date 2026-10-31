@@ -20,6 +20,7 @@ groups_col = db["groups"]
 files_col = db["files"]
 stats_col = db["stats"]
 search_sessions_col = db["search_sessions"]
+missing_col = db["missing_movies"]
 
 # =================================
 # NEW DATABASE 2
