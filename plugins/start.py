@@ -1,17 +1,17 @@
 import asyncio
 from html import escape
-from pyrogram.enums import ParseMode
 
 from bson import ObjectId
 
 from pyrogram import Client, filters
+from pyrogram.enums import ParseMode
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from database import (
     users_col,
     files_col,
     files_col2,
-    files_col3
+    files_col3,
     reqone,
     reqtwo
 )
@@ -21,6 +21,10 @@ from tag_cleaner import clean_file_name
 from config import LOG_CHANNEL, UPDATE_CHANNEL, UPDATE_GROUP
 
 
+# =========================
+# DATABASE COLLECTIONS
+# =========================
+
 DATABASES = {
     "1": files_col,
     "2": files_col2,
@@ -29,7 +33,128 @@ DATABASES = {
 
 
 # =========================
-# AUTO DELETE FUNCTION
+# CHECK JOIN REQUESTS
+# =========================
+
+async def check_join_requests(user_id):
+
+    try:
+
+        request_one = await reqone.find_one({
+            "user_id": user_id
+        })
+
+        request_two = await reqtwo.find_one({
+            "user_id": user_id
+        })
+
+        return bool(request_one and request_two)
+
+    except Exception as e:
+
+        print(f"Join Request Check Error: {e}")
+        return False
+
+
+# =========================
+# JOIN BUTTONS
+# =========================
+
+def join_request_buttons(client, payload):
+
+    link1 = getattr(client, "req_link1", None)
+    link2 = getattr(client, "req_link2", None)
+
+    buttons = []
+
+    if link1:
+
+        buttons.append([
+            InlineKeyboardButton(
+                "📢 JOIN CHANNEL 1",
+                url=link1
+            )
+        ])
+
+    if link2:
+
+        buttons.append([
+            InlineKeyboardButton(
+                "📢 JOIN CHANNEL 2",
+                url=link2
+            )
+        ])
+
+    buttons.append([
+        InlineKeyboardButton(
+            "🔄 TRY AGAIN",
+            callback_data=f"try:{payload}"
+        )
+    ])
+
+    return InlineKeyboardMarkup(buttons)
+
+
+# =========================
+# GET FILE
+# =========================
+
+async def get_file(payload):
+
+    try:
+
+        if payload.startswith(("f1_", "f2_", "f3_")):
+
+            db_number = payload[1]
+            document_id = payload[3:]
+
+            collection = DATABASES.get(db_number)
+
+            if collection is None:
+                return None
+
+            if not ObjectId.is_valid(document_id):
+                return None
+
+            return await collection.find_one({
+                "_id": ObjectId(document_id)
+            })
+
+        elif payload.startswith("f_"):
+
+            document_id = payload[2:]
+
+            if not ObjectId.is_valid(document_id):
+                return None
+
+            return await files_col.find_one({
+                "_id": ObjectId(document_id)
+            })
+
+        elif payload.startswith("file_"):
+
+            parts = payload.split("_", 2)
+
+            if len(parts) != 3:
+                return None
+
+            chat_id = int(parts[1])
+            message_id = int(parts[2])
+
+            return await files_col.find_one({
+                "chat_id": chat_id,
+                "message_id": message_id
+            })
+
+    except Exception as e:
+
+        print(f"Get File Error: {e}")
+
+    return None
+
+
+# =========================
+# AUTO DELETE
 # =========================
 
 async def auto_delete_file(
@@ -53,9 +178,7 @@ async def auto_delete_file(
             message_ids=message_ids
         )
 
-        print(
-            f"File and Important Message Auto Deleted: {user_id}"
-        )
+        print(f"Auto Deleted: {user_id}")
 
     except Exception as e:
 
@@ -63,10 +186,113 @@ async def auto_delete_file(
 
 
 # =========================
+# SEND FILE
+# =========================
+
+async def send_file_to_user(client, user, file):
+
+    user_id = user.id
+
+    file_id = file.get("file_id")
+
+    if not file_id:
+        raise ValueError("File ID Not Available")
+
+    original_name = (
+        file.get("file_name")
+        or "Unknown File"
+    )
+
+    file_name = clean_file_name(original_name)
+
+    file_size = file.get("file_size", 0) or 0
+
+    size_mb = file_size / (1024 * 1024)
+
+    if size_mb >= 1024:
+        size_text = f"{size_mb / 1024:.2f} GB"
+    else:
+        size_text = f"{size_mb:.2f} MB"
+
+    file_caption = (
+        f"<code>{escape(str(file_name))}\n\n"
+        f"🔘 size - {size_text}</code>"
+    )
+
+    # SEND FILE
+
+    sent_file = await client.send_cached_media(
+        chat_id=user_id,
+        file_id=file_id,
+        caption=file_caption,
+        parse_mode=ParseMode.HTML
+    )
+
+    # LOG
+
+    if LOG_CHANNEL:
+
+        try:
+
+            log_text = (
+                "📥 FILE DELIVERY SUCCESS\n\n"
+                f"👤 User: {escape(user.first_name)}\n"
+                f"🆔 User ID: {user_id}\n"
+                f"📛 Username: @{escape(user.username or 'None')}\n"
+                f"📁 File: {escape(str(file_name))}\n\n"
+                "✅ File successfully sent."
+            )
+
+            await client.send_message(
+                LOG_CHANNEL,
+                log_text
+            )
+
+        except Exception as e:
+
+            print(f"Delivery Log Error: {e}")
+
+    # IMPORTANT MESSAGE
+
+    sent_notice = None
+
+    try:
+
+        sent_notice = await client.send_message(
+            chat_id=user_id,
+            text=(
+                "‼️ IMPORTANT ‼️\n\n"
+                "ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ɪɴ 2 mins\n\n"
+                "ᴘʟᴇᴀsᴇ ғᴏʀᴡᴀʀᴅ ᴛʜɪs ᴍᴇssᴀɢᴇ "
+                "ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs."
+            )
+        )
+
+    except Exception as e:
+
+        print(f"Important Message Error: {e}")
+
+    # AUTO DELETE
+
+    asyncio.create_task(
+        auto_delete_file(
+            client,
+            user_id,
+            sent_file.id,
+            sent_notice.id if sent_notice else None
+        )
+    )
+
+    return sent_file
+
+
+# =========================
 # START COMMAND
 # =========================
 
-@Client.on_message(filters.command("start") & filters.private)
+@Client.on_message(
+    filters.command("start") & filters.private
+)
 async def start_command(client, message):
 
     user = message.from_user
@@ -74,7 +300,9 @@ async def start_command(client, message):
 
     # REGISTER USER
 
-    old_user = await users_col.find_one({"id": user_id})
+    old_user = await users_col.find_one({
+        "id": user_id
+    })
 
     if not old_user:
 
@@ -91,246 +319,86 @@ async def start_command(client, message):
 
                 await client.send_message(
                     LOG_CHANNEL,
-                    f"🆕 **New User Started Bot!**\n\n"
-                    f"👤 Name: {user.mention}\n"
-                    f"🆔 ID: `{user_id}`\n"
-                    f"📛 Username: @{user.username or 'None'}"
+                    (
+                        "🆕 NEW USER STARTED BOT!\n\n"
+                        f"👤 Name: {user.first_name}\n"
+                        f"🆔 ID: {user_id}\n"
+                        f"📛 Username: @{user.username or 'None'}"
+                    )
                 )
 
             except Exception as e:
 
-                print(f"Log Error: {e}")
+                print(f"User Log Error: {e}")
 
     # =========================
-    # PRIVATE FILE DELIVERY
+    # FILE DEEP LINK
     # =========================
 
     if len(message.command) > 1:
 
         payload = message.command[1]
 
-        try:
+        if payload.startswith(
+            ("f1_", "f2_", "f3_", "f_", "file_")
+        ):
 
-            file = None
+            try:
 
-            # NEW DATABASE-SPECIFIC FILE LINKS
+                file = await get_file(payload)
 
-            if payload.startswith(("f1_", "f2_", "f3_")):
-
-                db_number = payload[1]
-                document_id = payload[3:]
-
-                collection = DATABASES.get(db_number)
-
-                if collection is None:
+                if not file:
 
                     await message.reply_text(
-                        "❌ Database Not Available!"
+                        "❌ File Not Found!"
                     )
 
                     return
 
-                if not ObjectId.is_valid(document_id):
+                # CHECK BOTH REQUESTS
+
+                joined = await check_join_requests(user_id)
+
+                if not joined:
 
                     await message.reply_text(
-                        "❌ Invalid File Link!"
-                    )
-
-                    return
-
-                file = await collection.find_one({
-                    "_id": ObjectId(document_id)
-                })
-
-            # OLD FILE LINK COMPATIBILITY
-
-            elif payload.startswith("f_"):
-
-                document_id = payload[2:]
-
-                if not ObjectId.is_valid(document_id):
-
-                    await message.reply_text(
-                        "❌ Invalid File Link!"
-                    )
-
-                    return
-
-                file = await files_col.find_one({
-                    "_id": ObjectId(document_id)
-                })
-
-            # OLDER CHAT/MESSAGE LINK COMPATIBILITY
-
-            elif payload.startswith("file_"):
-
-                parts = payload.split("_", 2)
-
-                if len(parts) != 3:
-
-                    await message.reply_text(
-                        "❌ Invalid File Link!"
-                    )
-
-                    return
-
-                chat_id = int(parts[1])
-                message_id = int(parts[2])
-
-                file = await files_col.find_one({
-                    "chat_id": chat_id,
-                    "message_id": message_id
-                })
-
-            # =========================
-            # SEND FILE
-            # =========================
-
-            if file is not None:
-
-                file_id = file.get("file_id")
-
-                if not file_id:
-
-                    await message.reply_text(
-                        "❌ File ID not available.\n\n"
-                        "Admin needs to re-index this file."
-                    )
-
-                    return
-
-                # FILE NAME
-
-                original_name = (
-                    file.get("file_name")
-                    or "Unknown File"
-                )
-
-                file_name = clean_file_name(original_name)
-
-                # FILE SIZE
-
-                file_size = file.get("file_size", 0) or 0
-
-                size_mb = file_size / (1024 * 1024)
-
-                if size_mb >= 1024:
-
-                    size_text = f"{size_mb / 1024:.2f} GB"
-
-                else:
-
-                    size_text = f"{size_mb:.2f} MB"
-
-                # MONOSPACE CAPTION
-
-                file_caption = (
-                    f"<code>{escape(str(file_name))}\n\n"
-                    f"🔘 size - {size_text}</code>"
-                )
-
-                # SEND FILE WITH CAPTION
-
-                sent_file = await client.send_cached_media(
-                    chat_id=user_id,
-                    file_id=file_id,
-                    caption=file_caption,
-                    parse_mode=ParseMode.HTML
-                )
-
-                # =========================
-                # FILE DELIVERY SUCCESS LOG
-                # =========================
-
-                if LOG_CHANNEL:
-
-                    try:
-
-                        log_text = (
-                            "📥 **FILE DELIVERY SUCCESS**\n\n"
-                            f"👤 **User:** {escape(user.first_name)}\n"
-                            f"🆔 **User ID:** `{user_id}`\n"
-                            f"📛 **Username:** @{escape(user.username or 'None')}\n"
-                            f"📁 **File:** `{escape(str(file_name))}`\n\n"
-                            "✅ File successfully sent to user's PM."
+                        (
+                            "⚠️ JOIN REQUEST REQUIRED\n\n"
+                            "Please send Join Requests to both channels.\n\n"
+                            "After sending both requests, "
+                            "press TRY AGAIN."
+                        ),
+                        reply_markup=join_request_buttons(
+                            client,
+                            payload
                         )
-
-                        await client.send_message(
-                            chat_id=LOG_CHANNEL,
-                            text=log_text
-                        )
-
-                    except Exception as e:
-
-                        print(f"File Delivery Log Error: {e}")
-
-                # =========================
-                # IMPORTANT MESSAGE
-                # =========================
-
-                important_text = (
-                    "‼️ IMPORTANT ‼️\n\n"
-                    "ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ɪɴ 2 mins\n\n"
-                    "ᴘʟᴇᴀsᴇ ғᴏʀᴡᴀʀᴅ ᴛʜɪs ᴍᴇssᴀɢᴇ "
-                    "ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ᴏʀ ᴀɴʏ "
-                    "ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛ."
-                )
-
-                # SEND IMPORTANT MESSAGE
-
-                sent_notice = None
-
-                try:
-
-                    sent_notice = await client.send_message(
-                        chat_id=user_id,
-                        text=important_text
                     )
 
-                except Exception as e:
+                    return
 
-                    print(f"Important Message Error: {e}")
+                # BOTH REQUESTS FOUND
 
-                # =========================
-                # SCHEDULE AUTO DELETE
-                # =========================
-
-                asyncio.create_task(
-                    auto_delete_file(
-                        client,
-                        user_id,
-                        sent_file.id,
-                        sent_notice.id if sent_notice else None
-                    )
+                await send_file_to_user(
+                    client,
+                    user,
+                    file
                 )
 
                 return
 
-            # FILE NOT FOUND
+            except Exception as e:
 
-            if payload.startswith(
-                ("f1_", "f2_", "f3_", "f_", "file_")
-            ):
+                print(
+                    f"File Delivery Error: "
+                    f"{type(e).__name__}: {e}"
+                )
 
                 await message.reply_text(
-                    "❌ File Not Found!"
+                    "❌ Unable to Send File.\n\n"
+                    "Please contact the bot admin."
                 )
 
                 return
-
-        except Exception as e:
-
-            print(
-                f"File Delivery Error: "
-                f"{type(e).__name__}: {e}"
-            )
-
-            await message.reply_text(
-                "❌ Unable to Send File.\n\n"
-                "Please contact the bot admin."
-            )
-
-            return
 
     # =========================
     # NORMAL START MESSAGE
@@ -371,3 +439,79 @@ async def start_command(client, message):
         text,
         reply_markup=buttons
     )
+
+
+# =========================
+# TRY AGAIN CALLBACK
+# =========================
+
+@Client.on_callback_query(
+    filters.regex(r"^try:")
+)
+async def try_again_callback(client, callback_query):
+
+    user = callback_query.from_user
+    user_id = user.id
+
+    payload = callback_query.data.split(
+        ":",
+        1
+    )[1]
+
+    # CHECK BOTH REQUESTS AGAIN
+
+    joined = await check_join_requests(user_id)
+
+    if not joined:
+
+        await callback_query.answer(
+            "❌ Both Join Requests are not found!",
+            show_alert=True
+        )
+
+        return
+
+    # FIND FILE
+
+    file = await get_file(payload)
+
+    if not file:
+
+        await callback_query.answer(
+            "❌ File Not Found!",
+            show_alert=True
+        )
+
+        return
+
+    # SEND FILE
+
+    try:
+
+        await callback_query.answer(
+            "✅ Verified! Sending File..."
+        )
+
+        await send_file_to_user(
+            client,
+            user,
+            file
+        )
+
+        await callback_query.message.edit_text(
+            (
+                "✅ JOIN REQUESTS VERIFIED!\n\n"
+                "📁 Your file has been sent to your PM."
+            )
+        )
+
+    except Exception as e:
+
+        print(
+            f"Try Again Delivery Error: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        await callback_query.message.reply_text(
+            "❌ File Delivery Failed. Please try again."
+        )
