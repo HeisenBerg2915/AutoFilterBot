@@ -237,6 +237,32 @@ async def start_command(client, message):
                 )
 
                 # =========================
+                # FILE DELIVERY SUCCESS LOG
+                # =========================
+
+                if LOG_CHANNEL:
+
+                    try:
+
+                        log_text = (
+                            "📥 **FILE DELIVERY SUCCESS**\n\n"
+                            f"👤 **User:** {escape(user.first_name)}\n"
+                            f"🆔 **User ID:** `{user_id}`\n"
+                            f"📛 **Username:** @{escape(user.username or 'None')}\n"
+                            f"📁 **File:** `{escape(str(file_name))}`\n\n"
+                            "✅ File successfully sent to user's PM."
+                        )
+
+                        await client.send_message(
+                            chat_id=LOG_CHANNEL,
+                            text=log_text
+                        )
+
+                    except Exception as e:
+
+                        print(f"File Delivery Log Error: {e}")
+
+                # =========================
                 # IMPORTANT MESSAGE
                 # =========================
 
