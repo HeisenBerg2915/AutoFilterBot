@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import ADMINS
-from database import files_col
+from database import files_col, files_col2, files_col3
 
 
 MEDIA_TYPES = (
@@ -24,7 +24,7 @@ def get_media(message):
     return None
 
 
-# DELETE SINGLE FILE
+# DELETE SINGLE FILE FROM ALL DATABASES
 @Client.on_message(
     filters.command("delete") & filters.user(ADMINS)
 )
@@ -39,30 +39,55 @@ async def delete_file(client, message):
         )
         return
 
-    result = await files_col.delete_one({
-        "$or": [
-            {"file_unique_id": media.file_unique_id},
-            {"file_id": media.file_id}
-        ]
-    })
+    collections = [files_col, files_col2, files_col3]
 
-    if result.deleted_count:
+    deleted = 0
+
+    for collection in collections:
+        if collection is None:
+            continue
+
+        result = await collection.delete_many({
+            "$or": [
+                {"file_unique_id": media.file_unique_id},
+                {"file_id": media.file_id}
+            ]
+        })
+
+        deleted += result.deleted_count
+
+    if deleted:
         await message.reply_text(
-            "✅ File successfully deleted from database!"
+            f"✅ File successfully deleted!\n"
+            f"🗑️ Deleted records: {deleted}"
         )
     else:
         await message.reply_text(
-            "❌ File not found in database."
+            "❌ File not found in databases."
         )
 
 
-# DELETE ALL FILES
+# DELETE ALL FILES FROM ALL DATABASES
 @Client.on_message(
     filters.command("deleteall") & filters.user(ADMINS)
 )
 async def delete_all_indexed_files(client, message):
 
-    total = await files_col.count_documents({})
+    collections = [
+        ("DB1", files_col),
+        ("DB2", files_col2),
+        ("DB3", files_col3)
+    ]
+
+    total = 0
+
+    for name, collection in collections:
+        if collection is not None:
+            total += await collection.count_documents({
+                "_id": {
+                    "$ne": "__index_round_robin_state__"
+                }
+            })
 
     if total == 0:
         await message.reply_text(
@@ -87,6 +112,7 @@ async def delete_all_indexed_files(client, message):
 
     await message.reply_text(
         f"⚠️ DELETE ALL FILES?\n\n"
+        f"DB1 + DB2 + DB3\n"
         f"Total Files: {total}\n\n"
         "Are you sure?",
         reply_markup=buttons
@@ -107,7 +133,6 @@ async def delete_all_callback(client, query):
         return
 
     if query.data == "cancel_delete_all_files":
-
         await query.answer("Cancelled")
 
         await query.message.edit_text(
@@ -115,11 +140,37 @@ async def delete_all_callback(client, query):
         )
         return
 
-    result = await files_col.delete_many({})
+    collections = [
+        ("DB1", files_col),
+        ("DB2", files_col2),
+        ("DB3", files_col3)
+    ]
+
+    deleted_total = 0
+    report = []
+
+    for name, collection in collections:
+
+        if collection is None:
+            report.append(f"{name}: Not connected")
+            continue
+
+        result = await collection.delete_many({
+            "_id": {
+                "$ne": "__index_round_robin_state__"
+            }
+        })
+
+        deleted_total += result.deleted_count
+
+        report.append(
+            f"{name}: {result.deleted_count} deleted"
+        )
 
     await query.answer("Completed")
 
     await query.message.edit_text(
-        f"✅ Database Cleanup Complete!\n\n"
-        f"🗑️ Deleted Files: {result.deleted_count}"
+        "✅ Database Cleanup Complete!\n\n"
+        + "\n".join(report)
+        + f"\n\n🗑️ Total Deleted: {deleted_total}"
     )
