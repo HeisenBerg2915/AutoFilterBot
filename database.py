@@ -5,11 +5,6 @@ from config import (
     MONGO_URL3, DB_NAME3
 )
 
-# JOIN REQUEST DATABASE
-
-reqone = db["reqone"]
-reqtwo = db["reqtwo"]
-
 if not MONGO_URL:
     raise ValueError("MONGO_URL is missing!")
 
@@ -18,6 +13,10 @@ mongo_client = AsyncIOMotorClient(MONGO_URL)
 
 # Database
 db = mongo_client[DB_NAME]
+
+# JOIN REQUEST DATABASE
+reqone = db["reqone"]
+reqtwo = db["reqtwo"]
 
 # Collections
 users_col = db["users"]
