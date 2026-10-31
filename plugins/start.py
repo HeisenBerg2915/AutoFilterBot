@@ -39,7 +39,6 @@ DATABASES = {
 async def check_join_requests(user_id):
 
     try:
-
         request_one = await reqone.find_one({
             "user_id": user_id
         })
@@ -51,7 +50,6 @@ async def check_join_requests(user_id):
         return bool(request_one and request_two)
 
     except Exception as e:
-
         print(f"Join Request Check Error: {e}")
         return False
 
@@ -68,7 +66,6 @@ def join_request_buttons(client, payload):
     buttons = []
 
     if link1:
-
         buttons.append([
             InlineKeyboardButton(
                 "📢 JOIN CHANNEL 1",
@@ -77,7 +74,6 @@ def join_request_buttons(client, payload):
         ])
 
     if link2:
-
         buttons.append([
             InlineKeyboardButton(
                 "📢 JOIN CHANNEL 2",
@@ -147,7 +143,6 @@ async def get_file(payload):
             })
 
     except Exception as e:
-
         print(f"Get File Error: {e}")
 
     return None
@@ -181,7 +176,6 @@ async def auto_delete_file(
         print(f"Auto Deleted: {user_id}")
 
     except Exception as e:
-
         print(f"Auto Delete Error: {e}")
 
 
@@ -249,7 +243,6 @@ async def send_file_to_user(client, user, file):
             )
 
         except Exception as e:
-
             print(f"Delivery Log Error: {e}")
 
     # IMPORTANT MESSAGE
@@ -269,7 +262,6 @@ async def send_file_to_user(client, user, file):
         )
 
     except Exception as e:
-
         print(f"Important Message Error: {e}")
 
     # AUTO DELETE
@@ -284,6 +276,42 @@ async def send_file_to_user(client, user, file):
     )
 
     return sent_file
+
+
+# =========================
+# WELCOME KEYBOARD
+# =========================
+
+def welcome_buttons(client):
+
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "➕ Add Me To Your Group",
+                url=f"https://t.me/{client.me.username}?startgroup=true"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "👥 Join To Group",
+                url=UPDATE_GROUP
+            ),
+            InlineKeyboardButton(
+                "📢 Join To Channel",
+                url=UPDATE_CHANNEL
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "⚙️ Commands",
+                callback_data="commands"
+            ),
+            InlineKeyboardButton(
+                "📊 Stats",
+                callback_data="stats"
+            )
+        ]
+    ])
 
 
 # =========================
@@ -328,7 +356,6 @@ async def start_command(client, message):
                 )
 
             except Exception as e:
-
                 print(f"User Log Error: {e}")
 
     # =========================
@@ -410,35 +437,84 @@ async def start_command(client, message):
         "🔍 Search your favourite movies and files easily."
     )
 
+    await message.reply_text(
+        text,
+        reply_markup=welcome_buttons(client)
+    )
+
+
+# =========================
+# COMMANDS CALLBACK
+# =========================
+
+@Client.on_callback_query(
+    filters.regex(r"^commands$")
+)
+async def commands_callback(client, callback_query):
+
+    text = (
+        "📚 **BOT COMMANDS**\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+
+        "👤 **USER COMMANDS**\n\n"
+        "/start - Start the bot\n\n"
+
+        "🔐 **ADMIN COMMANDS**\n\n"
+
+        "/id - Get ID\n"
+        "/missing - Missing Movies\n"
+        "/index - Index Files\n"
+        "/delete - Delete File\n"
+        "/deleteall - Delete All Files\n"
+        "/totalreq - Total Requests\n"
+        "/purge_one - Clear Channel 1 Requests\n"
+        "/purge_two - Clear Channel 2 Requests\n"
+        "/reqlinks - Get Request Links\n\n"
+
+        "━━━━━━━━━━━━━━━━━━\n"
+        "⚠️ Admin Commands can only be used by Admins."
+    )
+
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "➕ Add Me To Your Group",
-                url=f"https://t.me/{client.me.username}?startgroup=true"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "👥 Join To Group",
-                url=UPDATE_GROUP
-            ),
-            InlineKeyboardButton(
-                "📢 Join To Channel",
-                url=UPDATE_CHANNEL
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "📊 Stats",
-                callback_data="stats"
+                "🔙 BACK",
+                callback_data="back_home"
             )
         ]
     ])
 
-    await message.reply_text(
+    await callback_query.message.edit_text(
         text,
         reply_markup=buttons
     )
+
+    await callback_query.answer()
+
+
+# =========================
+# BACK TO HOME
+# =========================
+
+@Client.on_callback_query(
+    filters.regex(r"^back_home$")
+)
+async def back_home_callback(client, callback_query):
+
+    user = callback_query.from_user
+
+    text = (
+        f"👋 Hello {user.mention}!\n\n"
+        "🎬 Welcome to Auto Filter Bot!\n\n"
+        "🔍 Search your favourite movies and files easily."
+    )
+
+    await callback_query.message.edit_text(
+        text,
+        reply_markup=welcome_buttons(client)
+    )
+
+    await callback_query.answer()
 
 
 # =========================
