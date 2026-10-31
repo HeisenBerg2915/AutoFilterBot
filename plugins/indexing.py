@@ -8,7 +8,11 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import ADMINS, LOG_CHANNEL
 from helpers.episode_filter import is_tv_episode
-from helpers.database_router import get_target_collections, save_file_to_databases
+
+from helpers.database_router import (
+    get_target_collections,
+    save_file_to_databases
+)
 
 
 # Requests and running jobs are kept in memory.
@@ -72,6 +76,7 @@ def get_forwarded_source(message):
 
 
 def request_keyboard(request_id):
+
     return InlineKeyboardMarkup(
         [[
             InlineKeyboardButton(
@@ -87,6 +92,7 @@ def request_keyboard(request_id):
 
 
 def database_keyboard(request_id):
+
     return InlineKeyboardMarkup(
         [
             [
@@ -114,6 +120,7 @@ def database_keyboard(request_id):
 
 
 def cancel_keyboard(request_id):
+
     return InlineKeyboardMarkup(
         [[
             InlineKeyboardButton(
@@ -133,9 +140,11 @@ async def send_index_request(
 ):
 
     if not LOG_CHANNEL:
+
         await message.reply_text(
             "❌ LOG_CHANNEL configure ചെയ്തിട്ടില്ല."
         )
+
         return
 
     request_id = uuid.uuid4().hex[:10]
@@ -185,9 +194,11 @@ async def send_index_request(
 async def index_command(client, message):
 
     if not message.from_user or message.from_user.id not in ADMINS:
+
         await message.reply_text(
             "❌ ഈ command ഉപയോഗിക്കാൻ അനുവാദമില്ല."
         )
+
         return
 
     argument = (
@@ -209,6 +220,7 @@ async def index_command(client, message):
                 "ഉദാഹരണം:\n"
                 "`/index https://t.me/channelusername/1234`"
             )
+
             return
 
         try:
@@ -333,7 +345,6 @@ async def run_indexing(
             source_chat_id,
             last_message_id,
             offset=1
-            
         ):
 
             if request.get("cancel"):
@@ -387,36 +398,18 @@ async def run_indexing(
 
             try:
 
-                already_in_all = True
-
-                for collection in collections:
-
-                    found = await collection.find_one(
-                        {
-                            "file_unique_id": media.file_unique_id
-                        },
-                        {
-                            "_id": 1
-                        },
-                    )
-
-                    if not found:
-
-                        already_in_all = False
-                        break
-
-                await save_file_to_databases(
+                saved_count = await save_file_to_databases(
                     file_data,
                     target=target
                 )
 
-                if already_in_all:
+                if saved_count > 0:
 
-                    duplicates += 1
+                    indexed += 1
 
                 else:
 
-                    indexed += 1
+                    duplicates += 1
 
             except Exception as save_error:
 
