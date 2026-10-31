@@ -93,11 +93,13 @@ def get_file_buttons(
 
     for file, db_number in results:
 
-        file_name = (
+        original_name = (
             file.get("file_name")
             or file.get("caption")
             or "Unknown File"
         )
+
+        file_name = clean_file_name(original_name)
 
         file_size = file.get("file_size", 0) or 0
 
