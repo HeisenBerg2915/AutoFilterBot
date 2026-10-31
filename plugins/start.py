@@ -1,5 +1,6 @@
 import asyncio
 from html import escape
+from pyrogram.enums import ParseMode
 
 from bson import ObjectId
 
@@ -228,7 +229,7 @@ async def start_command(client, message):
                     chat_id=user_id,
                     file_id=file_id,
                     caption=file_caption,
-                    parse_mode="html"
+                    parse_mode=ParseMode.HTML
                 )
 
                 # =========================
