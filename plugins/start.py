@@ -199,10 +199,12 @@ async def start_command(client, message):
 
                 # FILE NAME
 
-                file_name = (
+                original_name = (
                     file.get("file_name")
                     or "Unknown File"
                 )
+
+                file_name = clean_file_name(original_name)
 
                 # FILE SIZE
 
