@@ -6,7 +6,10 @@ from aiohttp import web
 from pyrogram import Client, idle
 from pyrogram.types import Message
 
-from config import API_ID, API_HASH, BOT_TOKEN
+from config import (
+    API_ID, API_HASH, BOT_TOKEN,
+    REQ_CHANNEL1, REQ_CHANNEL2
+)
 from database import init_db, close_db
 
 
@@ -19,11 +22,7 @@ class AutoFilterClient(Client):
         limit: int,
         offset: int = 1,
     ) -> AsyncGenerator[Message, None]:
-        """Yield messages from message ID `offset` through `limit`.
 
-        Messages are fetched in batches of at most 200 using get_messages().
-        This avoids get_chat_history(), which is unavailable to bot accounts.
-        """
         try:
             last_message_id = int(limit)
             current_message_id = max(1, int(offset))
@@ -83,6 +82,7 @@ async def main():
         runner = await start_web_server()
 
         print("Creating Telegram Client...")
+
         app = AutoFilterClient(
             "AutoFilterBot",
             api_id=API_ID,
@@ -95,7 +95,32 @@ async def main():
         await app.start()
         bot_started = True
 
+        # Generate Join Request Links
+        app.req_link1 = None
+        app.req_link2 = None
+
+        for channel_id, attribute, label in (
+            (REQ_CHANNEL1, "req_link1", "Channel 1"),
+            (REQ_CHANNEL2, "req_link2", "Channel 2"),
+        ):
+            if channel_id is None:
+                continue
+
+            try:
+                invite = await app.create_chat_invite_link(
+                    chat_id=channel_id,
+                    creates_join_request=True
+                )
+
+                setattr(app, attribute, invite.invite_link)
+
+                print(f"{label} Join Request Link Created!")
+
+            except Exception as e:
+                print(f"{label} Error: {e}")
+
         me = await app.get_me()
+
         print("Bot Started Successfully!")
         print(f"Bot Username: @{me.username}")
         print("Bot is waiting for messages...")
@@ -114,6 +139,7 @@ async def main():
             await runner.cleanup()
 
         await close_db()
+
         print("Bot Stopped!")
 
 
