@@ -9,8 +9,6 @@ from uuid import uuid4
 from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-import imdbio
-
 from database import (
     files_col,
     files_col2,
@@ -18,6 +16,8 @@ from database import (
     stats_col,
     search_sessions_col
 )
+
+import imdbio
 
 PAGE_SIZE = 8
 
@@ -185,6 +185,130 @@ async def show_page(client, message, query, session_id, page):
         reply_markup=keyboard
     )
 
+async def advantage_spell_chok(client, msg):
+
+    mv_rqst = msg.text or ""
+
+    if not mv_rqst.strip():
+        return
+
+    cleaned_query = re.sub(
+        r"\b(pl(i|e)\*?(s|z+|ease|se|ese|(e+)s(e)?)|"
+        r"((send|snd|giv(e)?|gib)(\sme)?)|movie(s)?|new|latest|"
+        r"br((o|u)h?)\*|mal(ayalam)?|t(h)?amil|file|that|find|"
+        r"full\smovie|any(one)|with\ssubtitle(s)?)",
+        "",
+        mv_rqst,
+        flags=re.IGNORECASE
+    ).strip()
+
+    if not cleaned_query:
+        cleaned_query = mv_rqst.strip()
+
+    # Google Search Button
+    reqst_gle = quote_plus(mv_rqst)
+
+    google_button = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔎 ᴄʜᴇᴄᴋ sᴘᴇʟʟ (ɢᴏᴏɢʟᴇ) 🔎",
+                url=f"https://www.google.com/search?q={reqst_gle}"
+            )
+        ]
+    ])
+
+    # IMDbIO Movie Suggestions
+    try:
+        result = await asyncio.to_thread(
+            imdbio.search_title,
+            cleaned_query
+        )
+
+        movies = result.titles if result and result.titles else None
+
+    except Exception as e:
+        print(f"IMDbIO Error: {e}")
+        movies = None
+
+    movielist = []
+    seen = set()
+
+    if movies:
+        for movie in movies[:6]:
+
+            title = getattr(movie, "title", None)
+            year = getattr(movie, "year", None)
+
+            if not title:
+                continue
+
+            title = str(title).strip()
+
+            year_match = re.search(
+                r"\b(19\d{2}|20\d{2})\b",
+                str(year)
+            ) if year else None
+
+            year_text = (
+                f" {year_match.group(1)}"
+                if year_match else ""
+            )
+
+            movie_name = f"{title}{year_text}"
+
+            if movie_name.casefold() not in seen:
+                seen.add(movie_name.casefold())
+                movielist.append(movie_name)
+
+            if len(movielist) >= 6:
+                break
+
+    text = (
+        "<blockquote>"
+        "<b>🚫 ᴏᴛᴛ ɴ/ᴀ ➪ ᴄʜᴇᴄᴋ sᴘᴇʟʟ 🚫</b>\n\n"
+        "───────────────\n"
+        "<b>➳ ᴍᴏᴠɪᴇ ᴏᴛᴛ ഇറങ്ങിയിട്ടില്ല കേട്ടോ അഥവാ ഇറങ്ങിയിട്ടുണ്ടെങ്കിൽ "
+        "താഴെ തന്നിരിക്കുന്ന ശരിയായ spelling ഉപയോഗിച്ച് search തുടരുക.</b>\n"
+        "───────────────\n"
+        "<b>➳ ᴛʜᴇ ᴍᴏᴠɪᴇ ʜᴀs ɴᴏᴛ ʙᴇᴇɴ ʀᴇʟᴇᴀsᴇᴅ "
+        "ᴏɴ ᴀɴʏ ᴏᴛᴛ ᴘʟᴀᴛғᴏʀᴍ ʏᴇᴛ.</b>\n\n"
+        "<b>➳ ɪғ ɪᴛ ʜᴀs ʙᴇᴇɴ ʀᴇʟᴇᴀsᴇᴅ, ᴘʟᴇᴀsᴇ ᴛʀʏ "
+        "sᴇᴀʀᴄʜɪɴɢ ᴀɢᴀɪɴ ᴜsɪɴɢ ᴛʜᴇ ᴄᴏʀʀᴇᴄᴛ sᴘᴇʟʟɪɴɢ "
+        "ᴘʀᴏᴠɪᴅᴇᴅ ʙᴇʟᴏᴡ.</b>\n\n"
+        "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴄᴀɴɴᴏᴛ ғɪɴᴅ ɪᴛ, "
+        "ᴘʟᴇᴀsᴇ ᴜsᴇ ᴛʜᴇ ɢᴏᴏɢʟᴇ ʙᴜᴛᴛᴏɴ.</b>"
+    )
+
+    if movielist:
+
+        text += (
+            "\n───────────────\n"
+            "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n\n"
+        )
+
+        for index, movie_name in enumerate(movielist, start=1):
+
+            text += (
+                f"<b>{index}.</b> "
+                f"<code>{escape(movie_name)}</code>\n"
+            )
+
+    else:
+
+        text += (
+            "\n━━━━━━━━━━━━━━━━━━\n"
+            "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n"
+            "<i>No suggestions available right now.</i>\n"
+        )
+
+    await msg.reply_text(
+        text=text,
+        reply_markup=google_button,
+        reply_to_message_id=msg.id,
+        parse_mode="html",
+        disable_web_page_preview=True
+    )
+
 
 @Client.on_message(filters.group & filters.text)
 async def auto_filter(client, message):
@@ -207,6 +331,10 @@ async def auto_filter(client, message):
             total += await collection.count_documents(search_filter)
 
     if not total:
+        try:
+            await advantage_spell_chok(client, message)
+        except Exception as e:
+            print(f"Spelling Check Error: {e}")
         return
 
     await stats_col.update_one(
