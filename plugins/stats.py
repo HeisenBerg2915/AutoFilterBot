@@ -153,37 +153,3 @@ async def stats_callback(client, query):
         text,
         reply_markup=buttons
     )
-
-
-@Client.on_callback_query(filters.regex("^back_to_start$"))
-async def back_to_start(client, query):
-
-    user = query.from_user
-
-    await query.answer()
-
-    text = (
-        f"👋 Hello {user.mention}!\n\n"
-        "🎬 Welcome to Auto Filter Bot!\n\n"
-        "🔍 Search your favourite movies and files easily."
-    )
-
-    buttons = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                "➕ Add Me To Your Group",
-                url=f"https://t.me/{client.me.username}?startgroup=true"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "📊 Stats",
-                callback_data="stats"
-            )
-        ]
-    ])
-
-    await query.message.edit_text(
-        text,
-        reply_markup=buttons
-    )
