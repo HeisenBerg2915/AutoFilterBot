@@ -289,7 +289,7 @@ async def send_file_to_user(client, user, file):
         sent_notice = await client.send_message(
             chat_id=user_id,
             text=(
-                "‼️ IMPORTANT ‼️\n\n"
+                "‼️ ɪᴍᴘᴏʀᴛᴀɴᴛ ‼️\n\n"
                 "ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ɪɴ 2 mins\n\n"
                 "ᴘʟᴇᴀsᴇ ғᴏʀᴡᴀʀᴅ ᴛʜɪs ᴍᴇssᴀɢᴇ "
                 "ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs."
@@ -323,27 +323,27 @@ def welcome_buttons(client):
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "➕ Add Me To Your Group",
+                "ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
                 url=f"https://t.me/{client.me.username}?startgroup=true"
             )
         ],
         [
             InlineKeyboardButton(
-                "👥 Join To Group",
+                "ᴊᴏɪɴ ᴛᴏ ɢʀᴏᴜᴘ",
                 url=UPDATE_GROUP
             ),
             InlineKeyboardButton(
-                "📢 Join To Channel",
+                "ᴊᴏɪɴ ᴛᴏ ᴄʜᴀɴɴᴇʟ",
                 url=UPDATE_CHANNEL
             )
         ],
         [
             InlineKeyboardButton(
-                "⚙️ Commands",
+                "sᴇᴛᴛɪɴɢs",
                 callback_data="commands"
             ),
             InlineKeyboardButton(
-                "📊 Stats",
+                "sᴛᴀᴛs",
                 callback_data="stats"
             )
         ]
@@ -453,9 +453,10 @@ async def start_command(client, message):
     # NORMAL START MESSAGE
 
     text = (
-        f"👋 Hello {user.mention}!\n\n"
-        "🎬 Welcome to Auto Filter Bot!\n\n"
-        "🔍 Search your favourite movies and files easily."
+        f"ʜᴀɪ 👋 {user.mention}!\n\n"
+        "ʏᴏᴜʀ ғᴀᴠᴏʀɪᴛᴇ ᴍᴏᴠɪᴇs & sᴇʀɪᴇs ᴀʀᴇ ᴊᴜsᴛ ᴀ sᴇᴀʀᴄʜ ᴀᴡᴀʏ!\n\n"
+        "sᴇᴀʀᴄʜ • ғɪɴᴅ • ᴇɴᴊᴏʏ"
+        "ᴘᴏᴡᴇʀᴇᴅ ʙʏ : ⟬ ᴛᴇᴀᴍ ғʟɪᴍ ᴍᴀxx ⟭"
     )
 
     await message.reply_text(
@@ -474,28 +475,28 @@ async def start_command(client, message):
 async def commands_callback(client, callback_query):
 
     text = (
-        "📚 **BOT COMMANDS**\n"
+        "📚 **ʙᴏᴛ ᴄᴏᴍᴍᴀɴᴅs**\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
-        "👤 **USER COMMANDS**\n\n"
-        "/start - Start the bot\n\n"
-        "🔐 **ADMIN COMMANDS**\n\n"
-        "/id - Get ID\n"
-        "/missing - Missing Movies\n"
-        "/index - Index Files\n"
-        "/delete - Delete File\n"
-        "/deleteall - Delete All Files\n"
-        "/totalreq - Total Requests\n"
-        "/purge_one - Clear Channel 1 Requests\n"
-        "/purge_two - Clear Channel 2 Requests\n"
-        "/reqlinks - Get Request Links\n\n"
+        "👤 **ᴜsᴇʀ ᴄᴏᴍᴍᴀɴᴅs**\n\n"
+        "/start - sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ\n\n"
+        "🔐 **ᴀᴅᴍɪɴ ᴄᴏᴍᴍᴀɴᴅs**\n\n"
+        "/id - ɢᴇᴛ ɪᴅ\n"
+        "/missing - ᴍɪssɪɴɢ ᴍᴏᴠɪᴇs\n"
+        "/index - ɪɴᴅᴇx ғɪʟᴇs\n"
+        "/delete - ᴅᴇʟᴇᴛᴇ ғɪʟᴇ\n"
+        "/deleteall - ᴅᴇʟᴇᴛᴇ ᴀʟʟ ғɪʟᴇs\n"
+        "/totalreq - ᴛᴏᴛᴀʟ ʀᴇǫᴜᴇsᴛs\n"
+        "/purge_one - ᴄʟᴇᴀʀ ᴄʜᴀɴɴᴇʟ 1 ʀᴇǫᴜᴇsᴛs\n"
+        "/purge_two - ᴄʟᴇᴀʀ ᴄʜᴀɴɴᴇʟ 2 ʀᴇǫᴜᴇsᴛs\n"
+        "/reqlinks - ɢᴇᴛ ʀᴇǫᴜᴇsᴛ ʟɪɴᴋs\n\n"
         "━━━━━━━━━━━━━━━━━━\n"
-        "⚠️ Admin Commands can only be used by Admins."
+        "⚠️ ᴀᴅᴍɪɴ ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ᴏɴʟʏ ʙᴇ ᴜsᴇᴅ ʙʏ ᴀᴅᴍɪɴs."
     )
 
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "🔙 BACK",
+                "ʙᴀᴄᴋ",
                 callback_data="back_home"
             )
         ]
@@ -521,9 +522,10 @@ async def back_home_callback(client, callback_query):
     user = callback_query.from_user
 
     text = (
-        f"👋 Hello {user.mention}!\n\n"
-        "🎬 Welcome to Auto Filter Bot!\n\n"
-        "🔍 Search your favourite movies and files easily."
+        f"ʜᴀɪ 👋 {user.mention}!\n\n"
+        "ʏᴏᴜʀ ғᴀᴠᴏʀɪᴛᴇ ᴍᴏᴠɪᴇs & sᴇʀɪᴇs ᴀʀᴇ ᴊᴜsᴛ ᴀ sᴇᴀʀᴄʜ ᴀᴡᴀʏ!\n\n"
+        "sᴇᴀʀᴄʜ • ғɪɴᴅ • ᴇɴᴊᴏʏ"
+        "ᴘᴏᴡᴇʀᴇᴅ ʙʏ : ⟬ ᴛᴇᴀᴍ ғʟɪᴍ ᴍᴀxx ⟭"
     )
 
     await callback_query.message.edit_text(
@@ -593,8 +595,8 @@ async def try_again_callback(client, callback_query):
 
         await callback_query.message.edit_text(
             (
-                "✅ JOIN REQUESTS VERIFIED!\n\n"
-                "📁 Your file has been sent to your PM."
+                "ᴊᴏɪɴ ʀᴇǫᴜᴇsᴛs ᴠᴇʀɪғɪᴇᴅ ✅\n\n"
+                "ʏᴏᴜʀ ғɪʟᴇ ʜᴀs ʙᴇᴇɴ sᴇɴᴛ ᴛᴏ ʏᴏᴜʀ ᴘᴍ."
             )
         )
 
