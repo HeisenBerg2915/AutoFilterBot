@@ -144,7 +144,7 @@ async def stats_callback(client, query):
         [
             InlineKeyboardButton(
                 "🔙 Back",
-                callback_data="back_to_start"
+                callback_data="back_home"
             )
         ]
     ])
