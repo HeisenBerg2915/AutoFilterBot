@@ -15,10 +15,9 @@ from database import (
     files_col2,
     files_col3,
     stats_col,
-    search_sessions_col
+    search_sessions_col,
     missing_col
 )
-
 import imdbio
 
 from tag_cleaner import clean_file_name
