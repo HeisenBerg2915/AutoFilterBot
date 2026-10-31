@@ -1,6 +1,8 @@
 import re
+import difflib
 from datetime import datetime
 from uuid import uuid4
+from urllib.parse import quote_plus
 
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -180,6 +182,138 @@ async def show_page(client, message, query, session_id, page):
     )
 
 
+# =========================
+# SPELLING CHECK FEATURE
+# =========================
+
+async def get_spelling_suggestions(query, limit=5):
+
+    candidates = set()
+
+    for collection, _ in DATABASES:
+
+        if collection is None:
+            continue
+
+        try:
+            names = await collection.distinct("file_name")
+
+            for name in names:
+
+                if not name:
+                    continue
+
+                clean = re.sub(
+                    r"\.[a-zA-Z0-9]{2,5}$",
+                    "",
+                    str(name)
+                )
+
+                clean = re.sub(
+                    r"\b(480p|720p|1080p|2160p|4k|hd|web[- ]?dl|bluray|"
+                    r"x264|x265|hevc|h264|h265)\b",
+                    " ",
+                    clean,
+                    flags=re.IGNORECASE
+                )
+
+                clean = re.sub(
+                    r"[\W_]+",
+                    " ",
+                    clean
+                ).strip()
+
+                if clean:
+                    candidates.add(clean)
+
+        except Exception as error:
+            print(f"Spelling suggestion error: {error}")
+
+    if not candidates:
+        return []
+
+    normalized = {
+        name.casefold(): name
+        for name in candidates
+    }
+
+    matches = difflib.get_close_matches(
+        query.casefold(),
+        list(normalized.keys()),
+        n=limit,
+        cutoff=0.48
+    )
+
+    return [
+        normalized[item]
+        for item in matches
+    ]
+
+
+async def show_spelling_check(client, message, query):
+
+    suggestions = await get_spelling_suggestions(query)
+
+    session_id = uuid4().hex
+
+    await search_sessions_col.insert_one({
+        "_id": session_id,
+        "query": query,
+        "suggestions": suggestions,
+        "chat_id": message.chat.id,
+        "created_at": datetime.utcnow()
+    })
+
+    buttons = []
+
+    for index, suggestion in enumerate(suggestions):
+
+        buttons.append([
+            InlineKeyboardButton(
+                f"🔎 {suggestion[:50]}",
+                callback_data=f"sp:{session_id}:{index}"
+            )
+        ])
+
+    google_query = quote_plus(query)
+
+    buttons.append([
+        InlineKeyboardButton(
+            "🌐 Check Spelling (Google)",
+            url=f"https://www.google.com/search?q={google_query}"
+        )
+    ])
+
+    text = (
+        "🚫 **No exact files found!**\n\n"
+        "🔤 **Spelling Check**\n"
+        "താഴെ കാണുന്ന പേരുകളിൽ ഉദ്ദേശിച്ച സിനിമ ഉണ്ടോ എന്ന് പരിശോധിക്കുക. "
+        "ശരിയായ പേര് തിരഞ്ഞെടുക്കുമ്പോൾ വീണ്ടും search ചെയ്യും."
+    )
+
+    if not suggestions:
+
+        text += (
+            "\n\n💡 ഈ പേരിനോട് സാമ്യമുള്ള indexed file "
+            "കണ്ടെത്താനായില്ല."
+        )
+
+    else:
+
+        text += "\n\n👇 **Did you mean?**"
+
+    await message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_to_message_id=message.id,
+        disable_web_page_preview=True
+    )
+
+
+# =========================
+# AUTO FILTER
+# =========================
+
 @Client.on_message(filters.group & filters.text)
 async def auto_filter(client, message):
 
@@ -201,6 +335,13 @@ async def auto_filter(client, message):
             total += await collection.count_documents(search_filter)
 
     if not total:
+
+        await show_spelling_check(
+            client,
+            message,
+            query
+        )
+
         return
 
     await stats_col.update_one(
@@ -218,7 +359,10 @@ async def auto_filter(client, message):
         "created_at": datetime.utcnow()
     })
 
-    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    total_pages = max(
+        1,
+        (total + PAGE_SIZE - 1) // PAGE_SIZE
+    )
 
     results = await get_search_results(
         search_filter,
@@ -243,10 +387,15 @@ async def auto_filter(client, message):
     )
 
 
+# =========================
+# PAGINATION CALLBACK
+# =========================
+
 @Client.on_callback_query(filters.regex(r"^pg:"))
 async def pagination_callback(client, callback_query):
 
     try:
+
         _, session_id, page = callback_query.data.split(":")
         page = int(page)
 
@@ -256,6 +405,7 @@ async def pagination_callback(client, callback_query):
             "Invalid Page!",
             show_alert=True
         )
+
         return
 
     session = await search_sessions_col.find_one({
@@ -268,6 +418,7 @@ async def pagination_callback(client, callback_query):
             "⌛ Pagination expired! Please search again.",
             show_alert=True
         )
+
         return
 
     if callback_query.message.chat.id != session["chat_id"]:
@@ -276,6 +427,7 @@ async def pagination_callback(client, callback_query):
             "Invalid Session!",
             show_alert=True
         )
+
         return
 
     await callback_query.answer()
@@ -286,4 +438,69 @@ async def pagination_callback(client, callback_query):
         session["query"],
         session_id,
         page
+    )
+
+
+# =========================
+# SPELLING SUGGESTION CALLBACK
+# =========================
+
+@Client.on_callback_query(filters.regex(r"^sp:"))
+async def spelling_suggestion_callback(client, callback_query):
+
+    try:
+
+        _, session_id, index = callback_query.data.split(":")
+        index = int(index)
+
+    except (ValueError, AttributeError):
+
+        await callback_query.answer(
+            "Invalid suggestion!",
+            show_alert=True
+        )
+
+        return
+
+    session = await search_sessions_col.find_one({
+        "_id": session_id
+    })
+
+    if not session or callback_query.message.chat.id != session.get("chat_id"):
+
+        await callback_query.answer(
+            "⌛ Suggestion expired. Please search again.",
+            show_alert=True
+        )
+
+        return
+
+    suggestions = session.get("suggestions", [])
+
+    if index < 0 or index >= len(suggestions):
+
+        await callback_query.answer(
+            "Suggestion not found!",
+            show_alert=True
+        )
+
+        return
+
+    selected_query = suggestions[index]
+
+    await search_sessions_col.update_one(
+        {"_id": session_id},
+        {"$set": {"query": selected_query}}
+    )
+
+    await callback_query.answer(
+        f"Searching: {selected_query}"
+    )
+
+    await show_page(
+        client,
+        callback_query.message,
+        selected_query,
+        session_id,
+        0
     )
