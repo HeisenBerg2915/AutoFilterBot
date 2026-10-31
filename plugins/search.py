@@ -1,5 +1,6 @@
 import re
 import asyncio
+
 from html import escape
 from urllib.parse import quote_plus
 
@@ -19,9 +20,14 @@ from database import (
 
 import imdbio
 
+
 PAGE_SIZE = 8
 
-# Available databases
+
+# =========================
+# AVAILABLE DATABASES
+# =========================
+
 DATABASES = [
     (files_col, "1"),
     (files_col2, "2"),
@@ -29,16 +35,28 @@ DATABASES = [
 ]
 
 
+# =========================
+# BUILD SEARCH FILTER
+# =========================
+
 def build_search_filter(query):
 
-    words = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
+    words = re.findall(
+        r"[^\W_]+",
+        query,
+        flags=re.UNICODE
+    )
 
     if not words:
         return None
 
-    pattern = r"(^|[\W_])" + r"[\W_]+".join(
-        re.escape(word) for word in words
-    ) + r"($|[\W_])"
+    pattern = (
+        r"(^|[\W_])"
+        + r"[\W_]+".join(
+            re.escape(word) for word in words
+        )
+        + r"($|[\W_])"
+    )
 
     return {
         "$or": [
@@ -58,7 +76,17 @@ def build_search_filter(query):
     }
 
 
-def get_file_buttons(client, results, session_id, page, total_pages):
+# =========================
+# FILE BUTTONS
+# =========================
+
+def get_file_buttons(
+    client,
+    results,
+    session_id,
+    page,
+    total_pages
+):
 
     buttons = []
 
@@ -71,6 +99,7 @@ def get_file_buttons(client, results, session_id, page, total_pages):
         )
 
         file_size = file.get("file_size", 0) or 0
+
         size_mb = file_size / (1024 * 1024)
 
         if size_mb >= 1024:
@@ -92,6 +121,7 @@ def get_file_buttons(client, results, session_id, page, total_pages):
     navigation = []
 
     if page > 0:
+
         navigation.append(
             InlineKeyboardButton(
                 "⬅️ Previous",
@@ -100,6 +130,7 @@ def get_file_buttons(client, results, session_id, page, total_pages):
         )
 
     if page < total_pages - 1:
+
         navigation.append(
             InlineKeyboardButton(
                 "Next ➡️",
@@ -112,6 +143,10 @@ def get_file_buttons(client, results, session_id, page, total_pages):
 
     return InlineKeyboardMarkup(buttons)
 
+
+# =========================
+# GET SEARCH RESULTS
+# =========================
 
 async def get_search_results(search_filter, limit):
 
@@ -141,7 +176,17 @@ async def get_search_results(search_filter, limit):
     return all_results
 
 
-async def show_page(client, message, query, session_id, page):
+# =========================
+# SHOW SEARCH PAGE
+# =========================
+
+async def show_page(
+    client,
+    message,
+    query,
+    session_id,
+    page
+):
 
     search_filter = build_search_filter(query)
 
@@ -153,11 +198,20 @@ async def show_page(client, message, query, session_id, page):
     for collection, _ in DATABASES:
 
         if collection is not None:
-            total += await collection.count_documents(search_filter)
 
-    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+            total += await collection.count_documents(
+                search_filter
+            )
 
-    page = max(0, min(page, total_pages - 1))
+    total_pages = max(
+        1,
+        (total + PAGE_SIZE - 1) // PAGE_SIZE
+    )
+
+    page = max(
+        0,
+        min(page, total_pages - 1)
+    )
 
     limit = (page + 1) * PAGE_SIZE
 
@@ -185,12 +239,57 @@ async def show_page(client, message, query, session_id, page):
         reply_markup=keyboard
     )
 
+
+# =========================
+# IMDbIO MOVIE SUGGESTIONS
+# =========================
+
+async def get_movie_suggestions(query, bulk=False):
+
+    if not query:
+        return None
+
+    query = query.strip()
+
+    if not query:
+        return None
+
+    try:
+
+        result = await asyncio.to_thread(
+            imdbio.search_title,
+            query
+        )
+
+        if not result or not result.titles:
+            return None
+
+        if bulk:
+            return result.titles[:6]
+
+        return result.titles[0]
+
+    except Exception as e:
+
+        print(f"IMDbIO Search Error: {e}")
+
+        return None
+
+
+# =========================
+# ADVANTAGE SPELL CHECK
+# =========================
+
 async def advantage_spell_chok(client, msg):
 
     mv_rqst = msg.text or ""
 
     if not mv_rqst.strip():
         return
+
+    # =========================
+    # CLEAN SEARCH QUERY
+    # =========================
 
     cleaned_query = re.sub(
         r"\b(pl(i|e)\*?(s|z+|ease|se|ese|(e+)s(e)?)|"
@@ -205,7 +304,10 @@ async def advantage_spell_chok(client, msg):
     if not cleaned_query:
         cleaned_query = mv_rqst.strip()
 
-    # Google Search Button
+    # =========================
+    # GOOGLE SEARCH BUTTON
+    # =========================
+
     reqst_gle = quote_plus(mv_rqst)
 
     google_button = InlineKeyboardMarkup([
@@ -217,27 +319,42 @@ async def advantage_spell_chok(client, msg):
         ]
     ])
 
-    # IMDbIO Movie Suggestions
+    # =========================
+    # IMDbIO MOVIE SUGGESTIONS
+    # =========================
+
     try:
-        result = await asyncio.to_thread(
-            imdbio.search_title,
-            cleaned_query
+
+        movies = await get_movie_suggestions(
+            cleaned_query,
+            bulk=True
         )
 
-        movies = result.titles if result and result.titles else None
-
     except Exception as e:
+
         print(f"IMDbIO Error: {e}")
+
         movies = None
 
     movielist = []
+
     seen = set()
 
     if movies:
+
         for movie in movies[:6]:
 
-            title = getattr(movie, "title", None)
-            year = getattr(movie, "year", None)
+            title = getattr(
+                movie,
+                "title",
+                None
+            )
+
+            year = getattr(
+                movie,
+                "year",
+                None
+            )
 
             if not title:
                 continue
@@ -257,27 +374,43 @@ async def advantage_spell_chok(client, msg):
             movie_name = f"{title}{year_text}"
 
             if movie_name.casefold() not in seen:
+
                 seen.add(movie_name.casefold())
+
                 movielist.append(movie_name)
 
             if len(movielist) >= 6:
                 break
 
+    # =========================
+    # SPELL CHECK MESSAGE
+    # =========================
+
     text = (
         "<blockquote>"
         "<b>🚫 ᴏᴛᴛ ɴ/ᴀ ➪ ᴄʜᴇᴄᴋ sᴘᴇʟʟ 🚫</b>\n\n"
+
         "───────────────\n"
+
         "<b>➳ ᴍᴏᴠɪᴇ ᴏᴛᴛ ഇറങ്ങിയിട്ടില്ല കേട്ടോ അഥവാ ഇറങ്ങിയിട്ടുണ്ടെങ്കിൽ "
         "താഴെ തന്നിരിക്കുന്ന ശരിയായ spelling ഉപയോഗിച്ച് search തുടരുക.</b>\n"
+
         "───────────────\n"
+
         "<b>➳ ᴛʜᴇ ᴍᴏᴠɪᴇ ʜᴀs ɴᴏᴛ ʙᴇᴇɴ ʀᴇʟᴇᴀsᴇᴅ "
         "ᴏɴ ᴀɴʏ ᴏᴛᴛ ᴘʟᴀᴛғᴏʀᴍ ʏᴇᴛ.</b>\n\n"
+
         "<b>➳ ɪғ ɪᴛ ʜᴀs ʙᴇᴇɴ ʀᴇʟᴇᴀsᴇᴅ, ᴘʟᴇᴀsᴇ ᴛʀʏ "
         "sᴇᴀʀᴄʜɪɴɢ ᴀɢᴀɪɴ ᴜsɪɴɢ ᴛʜᴇ ᴄᴏʀʀᴇᴄᴛ sᴘᴇʟʟɪɴɢ "
         "ᴘʀᴏᴠɪᴅᴇᴅ ʙᴇʟᴏᴡ.</b>\n\n"
+
         "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴄᴀɴɴᴏᴛ ғɪɴᴅ ɪᴛ, "
         "ᴘʟᴇᴀsᴇ ᴜsᴇ ᴛʜᴇ ɢᴏᴏɢʟᴇ ʙᴜᴛᴛᴏɴ.</b>"
     )
+
+    # =========================
+    # SHOW SUGGESTIONS
+    # =========================
 
     if movielist:
 
@@ -286,7 +419,10 @@ async def advantage_spell_chok(client, msg):
             "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n\n"
         )
 
-        for index, movie_name in enumerate(movielist, start=1):
+        for index, movie_name in enumerate(
+            movielist,
+            start=1
+        ):
 
             text += (
                 f"<b>{index}.</b> "
@@ -301,16 +437,26 @@ async def advantage_spell_chok(client, msg):
             "<i>No suggestions available right now.</i>\n"
         )
 
+    # =========================
+    # SEND SPELL CHECK MESSAGE
+    # =========================
+
     await msg.reply_text(
         text=text,
         reply_markup=google_button,
         reply_to_message_id=msg.id,
-        parse_mode="html",
+        parse_mode=enums.ParseMode.HTML,
         disable_web_page_preview=True
     )
 
 
-@Client.on_message(filters.group & filters.text)
+# =========================
+# AUTO FILTER
+# =========================
+
+@Client.on_message(
+    filters.group & filters.text
+)
 async def auto_filter(client, message):
 
     query = message.text.strip()
@@ -328,20 +474,43 @@ async def auto_filter(client, message):
     for collection, _ in DATABASES:
 
         if collection is not None:
-            total += await collection.count_documents(search_filter)
+
+            total += await collection.count_documents(
+                search_filter
+            )
+
+    # =========================
+    # SPELL CHECK IF NO RESULTS
+    # =========================
 
     if not total:
+
         try:
-            await advantage_spell_chok(client, message)
+
+            await advantage_spell_chok(
+                client,
+                message
+            )
+
         except Exception as e:
+
             print(f"Spelling Check Error: {e}")
+
         return
+
+    # =========================
+    # UPDATE SEARCH STATS
+    # =========================
 
     await stats_col.update_one(
         {"_id": "bot_stats"},
         {"$inc": {"searches": 1}},
         upsert=True
     )
+
+    # =========================
+    # CREATE SEARCH SESSION
+    # =========================
 
     session_id = uuid4().hex
 
@@ -352,7 +521,10 @@ async def auto_filter(client, message):
         "created_at": datetime.utcnow()
     })
 
-    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    total_pages = max(
+        1,
+        (total + PAGE_SIZE - 1) // PAGE_SIZE
+    )
 
     results = await get_search_results(
         search_filter,
@@ -377,11 +549,19 @@ async def auto_filter(client, message):
     )
 
 
-@Client.on_callback_query(filters.regex(r"^pg:"))
+# =========================
+# PAGINATION CALLBACK
+# =========================
+
+@Client.on_callback_query(
+    filters.regex(r"^pg:")
+)
 async def pagination_callback(client, callback_query):
 
     try:
+
         _, session_id, page = callback_query.data.split(":")
+
         page = int(page)
 
     except (ValueError, AttributeError):
@@ -390,6 +570,7 @@ async def pagination_callback(client, callback_query):
             "Invalid Page!",
             show_alert=True
         )
+
         return
 
     session = await search_sessions_col.find_one({
@@ -402,6 +583,7 @@ async def pagination_callback(client, callback_query):
             "⌛ Pagination expired! Please search again.",
             show_alert=True
         )
+
         return
 
     if callback_query.message.chat.id != session["chat_id"]:
@@ -410,6 +592,7 @@ async def pagination_callback(client, callback_query):
             "Invalid Session!",
             show_alert=True
         )
+
         return
 
     await callback_query.answer()
