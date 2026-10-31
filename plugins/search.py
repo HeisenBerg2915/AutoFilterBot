@@ -10,6 +10,27 @@ from database import files_col, stats_col, search_sessions_col
 PAGE_SIZE = 8
 
 
+def build_search_filter(query):
+    """
+    Normalize search terms so spaces, dots, hyphens,
+    and underscores can match each other.
+    """
+
+    words = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
+
+    if not words:
+        return None
+
+    pattern = r"[\W_]+".join(re.escape(word) for word in words)
+
+    return {
+        "$or": [
+            {"file_name": {"$regex": pattern, "$options": "i"}},
+            {"caption": {"$regex": pattern, "$options": "i"}}
+        ]
+    }
+
+
 def get_file_buttons(client, results, session_id, page, total_pages):
 
     buttons = []
@@ -68,12 +89,10 @@ def get_file_buttons(client, results, session_id, page, total_pages):
 
 async def show_page(client, message, query, session_id, page):
 
-    search_filter = {
-        "$or": [
-            {"file_name": {"$regex": re.escape(query), "$options": "i"}},
-            {"caption": {"$regex": re.escape(query), "$options": "i"}}
-        ]
-    }
+    search_filter = build_search_filter(query)
+
+    if not search_filter:
+        return
 
     total = await files_col.count_documents(search_filter)
 
@@ -113,12 +132,10 @@ async def auto_filter(client, message):
     if query.startswith("/") or len(query) < 2:
         return
 
-    search_filter = {
-        "$or": [
-            {"file_name": {"$regex": re.escape(query), "$options": "i"}},
-            {"caption": {"$regex": re.escape(query), "$options": "i"}}
-        ]
-    }
+    search_filter = build_search_filter(query)
+
+    if not search_filter:
+        return
 
     total = await files_col.count_documents(search_filter)
 
