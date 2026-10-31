@@ -10,8 +10,6 @@ from config import (
     API_ID,
     API_HASH,
     BOT_TOKEN,
-    REQ_CHANNEL1,
-    REQ_CHANNEL2,
     LOG_CHANNEL
 )
 
@@ -19,7 +17,6 @@ from database import init_db, close_db
 
 
 class AutoFilterClient(Client):
-    """Pyrogram client with message-ID batch iteration."""
 
     async def iter_messages(
         self,
@@ -64,7 +61,6 @@ class AutoFilterClient(Client):
             current_message_id = batch_end + 1
 
 
-# Global Client
 app = None
 
 
@@ -109,17 +105,14 @@ async def main():
 
     try:
 
-        # MongoDB
         print("Connecting MongoDB...")
 
         await init_db()
 
-        # Web Server
         print("Starting Web Server...")
 
         runner = await start_web_server()
 
-        # Telegram Client
         print("Creating Telegram Client...")
 
         app = AutoFilterClient(
@@ -130,16 +123,13 @@ async def main():
             plugins={"root": "plugins"},
         )
 
-        # Start Bot
         print("Starting Telegram Bot...")
 
         await app.start()
 
         bot_started = True
 
-        # =================================
-        # MANUAL JOIN REQUEST LINKS
-        # =================================
+        # Manual Join Request Links
 
         app.req_link1 = os.getenv("REQ_LINK1") or None
         app.req_link2 = os.getenv("REQ_LINK2") or None
@@ -154,28 +144,13 @@ async def main():
             "Configured" if app.req_link2 else "Not Configured"
         )
 
-        # =================================
-        # CHANNEL CONFIGURATION
-        # =================================
-
         print("Checking Channel Configuration...")
-
-        print(
-            "Channel 1 ID:",
-            REQ_CHANNEL1 if REQ_CHANNEL1 else "Not Configured"
-        )
-
-        print(
-            "Channel 2 ID:",
-            REQ_CHANNEL2 if REQ_CHANNEL2 else "Not Configured"
-        )
 
         print(
             "Log Channel:",
             LOG_CHANNEL if LOG_CHANNEL else "Not Configured"
         )
 
-        # Bot Information
         me = await app.get_me()
 
         print("Bot Started Successfully!")
