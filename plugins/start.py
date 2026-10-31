@@ -191,20 +191,17 @@ async def start_command(client, message):
 
                 # IMPORTANT MESSAGE
                 important_text = (
-                    "<blockquote>"
-                    "<b>‼️ IMPORTANT ‼️</b>\n\n"
+                    "‼️ IMPORTANT ‼️\n\n"
                     "ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ɪɴ 2 mins\n\n"
                     "ᴘʟᴇᴀsᴇ ғᴏʀᴡᴀʀᴅ ᴛʜɪs ᴍᴇssᴀɢᴇ "
                     "ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ᴏʀ ᴀɴʏ "
                     "ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛ."
-                    "</blockquote>"
                 )
 
                 # SEND IMPORTANT MESSAGE
                 sent_notice = await client.send_message(
                     chat_id=user_id,
-                    text=important_text,
-                    parse_mode="html"
+                    text=important_text
                 )
 
                 # SCHEDULE AUTO DELETE
