@@ -1,6 +1,6 @@
 from pyrogram import Client, filters, enums
 
-from config import ADMINS, REQ_CHANNEL1, REQ_CHANNEL2
+from config import ADMINS
 from database import reqone, reqtwo
 
 
@@ -12,21 +12,8 @@ async def total_requests(client, message):
     count_one = await reqone.count_documents({})
     count_two = await reqtwo.count_documents({})
 
-    try:
-        title_one = (
-            (await client.get_chat(REQ_CHANNEL1)).title
-            if REQ_CHANNEL1 else "Channel 1"
-        )
-    except Exception:
-        title_one = "Channel 1"
-
-    try:
-        title_two = (
-            (await client.get_chat(REQ_CHANNEL2)).title
-            if REQ_CHANNEL2 else "Channel 2"
-        )
-    except Exception:
-        title_two = "Channel 2"
+    title_one = "Channel 1"
+    title_two = "Channel 2"
 
     await message.reply_text(
         "<b>📊 TOTAL JOIN REQUESTS</b>\n\n"
