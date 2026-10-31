@@ -1,3 +1,5 @@
+from pymongo import ReturnDocument
+
 from database import (
     files_col,
     files_col2,
@@ -5,7 +7,7 @@ from database import (
 )
 
 
-def get_target_collections(target="db1"):
+def get_all_databases():
 
     databases = {
         "db1": files_col,
@@ -13,43 +15,131 @@ def get_target_collections(target="db1"):
         "db3": files_col3
     }
 
+    return {
+        name: collection
+        for name, collection in databases.items()
+        if collection is not None
+    }
+
+
+def get_target_collections(target="db1"):
+
+    databases = get_all_databases()
+
     target = target.lower()
 
     if target == "all":
-        return [
-            collection
-            for collection in databases.values()
-            if collection is not None
-        ]
+        return list(databases.values())
 
     if target not in databases:
         return []
 
-    collection = databases[target]
+    return [databases[target]]
 
-    if collection is None:
-        return []
 
-    return [collection]
+async def is_duplicate(file_unique_id):
+
+    databases = get_all_databases()
+
+    for collection in databases.values():
+
+        found = await collection.find_one(
+            {
+                "file_unique_id": file_unique_id
+            },
+            {
+                "_id": 1
+            }
+        )
+
+        if found:
+            return True
+
+    return False
+
+
+async def get_next_round_robin_database():
+
+    databases = get_all_databases()
+
+    order = ["db1", "db2", "db3"]
+
+    available = [
+        name
+        for name in order
+        if name in databases
+    ]
+
+    if not available:
+        return None
+
+    # DB1 is used to store the persistent counter.
+    if files_col is None:
+        return None
+
+    state = await files_col.find_one_and_update(
+        {
+            "_id": "__index_round_robin_state__"
+        },
+        {
+            "$inc": {
+                "counter": 1
+            }
+        },
+        upsert=True,
+        return_document=ReturnDocument.AFTER
+    )
+
+    counter = state.get("counter", 1)
+
+    index = (counter - 1) % len(available)
+
+    selected_name = available[index]
+
+    return databases[selected_name]
 
 
 async def save_file_to_databases(file_data, target="db1"):
 
-    collections = get_target_collections(target)
+    target = target.lower()
 
-    if not collections:
+    databases = get_all_databases()
+
+    if not databases:
         return 0
 
-    saved_count = 0
+    # Check every database before saving.
+    duplicate = await is_duplicate(
+        file_data["file_unique_id"]
+    )
 
-    for collection in collections:
+    if duplicate:
+        return 0
 
-        await collection.update_one(
-            {"file_unique_id": file_data["file_unique_id"]},
-            {"$set": file_data},
-            upsert=True
-        )
+    # All DBs: distribute new files using round-robin.
+    if target == "all":
 
-        saved_count += 1
+        collection = await get_next_round_robin_database()
 
-    return saved_count
+        if collection is None:
+            return 0
+
+    else:
+
+        if target not in databases:
+            return 0
+
+        collection = databases[target]
+
+    # Save only in the selected database.
+    await collection.update_one(
+        {
+            "file_unique_id": file_data["file_unique_id"]
+        },
+        {
+            "$set": file_data
+        },
+        upsert=True
+    )
+
+    return 1
