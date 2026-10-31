@@ -1,4 +1,5 @@
 import asyncio
+from html import escape
 
 from bson import ObjectId
 
@@ -26,23 +27,29 @@ DATABASES = {
 # AUTO DELETE FUNCTION
 # =========================
 
-async def auto_delete_file(client, user_id, file_message_id, notice_message_id):
+async def auto_delete_file(
+    client,
+    user_id,
+    file_message_id,
+    notice_message_id
+):
 
     await asyncio.sleep(120)
 
     try:
 
+        message_ids = [file_message_id]
+
+        if notice_message_id:
+            message_ids.append(notice_message_id)
+
         await client.delete_messages(
             chat_id=user_id,
-            message_ids=[
-                file_message_id,
-                notice_message_id
-            ]
+            message_ids=message_ids
         )
 
         print(
-            f"Auto Deleted File and Important Message "
-            f"for User: {user_id}"
+            f"File and Important Message Auto Deleted: {user_id}"
         )
 
     except Exception as e:
@@ -61,6 +68,7 @@ async def start_command(client, message):
     user_id = user.id
 
     # REGISTER USER
+
     old_user = await users_col.find_one({"id": user_id})
 
     if not old_user:
@@ -101,6 +109,7 @@ async def start_command(client, message):
             file = None
 
             # NEW DATABASE-SPECIFIC FILE LINKS
+
             if payload.startswith(("f1_", "f2_", "f3_")):
 
                 db_number = payload[1]
@@ -129,6 +138,7 @@ async def start_command(client, message):
                 })
 
             # OLD FILE LINK COMPATIBILITY
+
             elif payload.startswith("f_"):
 
                 document_id = payload[2:]
@@ -146,6 +156,7 @@ async def start_command(client, message):
                 })
 
             # OLDER CHAT/MESSAGE LINK COMPATIBILITY
+
             elif payload.startswith("file_"):
 
                 parts = payload.split("_", 2)
@@ -183,13 +194,47 @@ async def start_command(client, message):
 
                     return
 
-                # SEND FILE TO USER
-                sent_file = await client.send_cached_media(
-                    chat_id=user_id,
-                    file_id=file_id
+                # FILE NAME
+
+                file_name = (
+                    file.get("file_name")
+                    or "Unknown File"
                 )
 
+                # FILE SIZE
+
+                file_size = file.get("file_size", 0) or 0
+
+                size_mb = file_size / (1024 * 1024)
+
+                if size_mb >= 1024:
+
+                    size_text = f"{size_mb / 1024:.2f} GB"
+
+                else:
+
+                    size_text = f"{size_mb:.2f} MB"
+
+                # MONOSPACE CAPTION
+
+                file_caption = (
+                    f"<code>{escape(str(file_name))}\n\n"
+                    f"🔘 size - {size_text}</code>"
+                )
+
+                # SEND FILE WITH CAPTION
+
+                sent_file = await client.send_cached_media(
+                    chat_id=user_id,
+                    file_id=file_id,
+                    caption=file_caption,
+                    parse_mode="html"
+                )
+
+                # =========================
                 # IMPORTANT MESSAGE
+                # =========================
+
                 important_text = (
                     "‼️ IMPORTANT ‼️\n\n"
                     "ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ɪɴ 2 mins\n\n"
@@ -199,25 +244,40 @@ async def start_command(client, message):
                 )
 
                 # SEND IMPORTANT MESSAGE
-                sent_notice = await client.send_message(
-                    chat_id=user_id,
-                    text=important_text
-                )
 
+                sent_notice = None
+
+                try:
+
+                    sent_notice = await client.send_message(
+                        chat_id=user_id,
+                        text=important_text
+                    )
+
+                except Exception as e:
+
+                    print(f"Important Message Error: {e}")
+
+                # =========================
                 # SCHEDULE AUTO DELETE
+                # =========================
+
                 asyncio.create_task(
                     auto_delete_file(
                         client,
                         user_id,
                         sent_file.id,
-                        sent_notice.id
+                        sent_notice.id if sent_notice else None
                     )
                 )
 
                 return
 
             # FILE NOT FOUND
-            if payload.startswith(("f1_", "f2_", "f3_", "f_", "file_")):
+
+            if payload.startswith(
+                ("f1_", "f2_", "f3_", "f_", "file_")
+            ):
 
                 await message.reply_text(
                     "❌ File Not Found!"
