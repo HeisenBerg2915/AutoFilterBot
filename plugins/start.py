@@ -36,37 +36,26 @@ DATABASES = {
 # LOG CHANNEL
 # =========================
 
-_log_chat_id = None
-
-
 async def send_log(client, text):
 
-    global _log_chat_id
+    log_chat_id = getattr(
+        client,
+        "log_channel_id",
+        None
+    )
 
     if not LOG_CHANNEL:
         return
 
+    if not log_chat_id:
+
+        print("Log Channel Not Available!")
+        return
+
     try:
 
-        if _log_chat_id is None:
-
-            # Load Telegram dialogs
-            async for dialog in client.get_dialogs():
-
-                if dialog.chat.id == LOG_CHANNEL:
-
-                    _log_chat_id = dialog.chat.id
-                    break
-
-            # Resolve channel
-            if _log_chat_id is None:
-
-                chat = await client.get_chat(LOG_CHANNEL)
-
-                _log_chat_id = chat.id
-
         await client.send_message(
-            chat_id=_log_chat_id,
+            chat_id=log_chat_id,
             text=text
         )
 
@@ -286,7 +275,10 @@ async def send_file_to_user(client, user, file):
         "✅ File successfully sent."
     )
 
-    await send_log(client, log_text)
+    await send_log(
+        client,
+        log_text
+    )
 
     # IMPORTANT MESSAGE
 
@@ -559,6 +551,8 @@ async def try_again_callback(client, callback_query):
         1
     )[1]
 
+    # CHECK BOTH REQUESTS
+
     joined = await check_join_requests(user_id)
 
     if not joined:
@@ -570,6 +564,8 @@ async def try_again_callback(client, callback_query):
 
         return
 
+    # FIND FILE
+
     file = await get_file(payload)
 
     if not file:
@@ -580,6 +576,8 @@ async def try_again_callback(client, callback_query):
         )
 
         return
+
+    # SEND FILE
 
     try:
 
