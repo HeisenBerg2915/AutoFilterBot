@@ -18,6 +18,7 @@ from database import (
     search_sessions_col,
     missing_col
 )
+
 import imdbio
 
 from tag_cleaner import clean_file_name
@@ -290,10 +291,6 @@ async def advantage_spell_chok(client, msg):
     if not mv_rqst.strip():
         return
 
-    # =========================
-    # CLEAN SEARCH QUERY
-    # =========================
-
     cleaned_query = re.sub(
         r"\b(pl(i|e)\*?(s|z+|ease|se|ese|(e+)s(e)?)|"
         r"((send|snd|giv(e)?|gib)(\sme)?)|movie(s)?|new|latest|"
@@ -307,9 +304,7 @@ async def advantage_spell_chok(client, msg):
     if not cleaned_query:
         cleaned_query = mv_rqst.strip()
 
-    # =========================
     # GOOGLE SEARCH BUTTON
-    # =========================
 
     reqst_gle = quote_plus(mv_rqst)
 
@@ -322,9 +317,7 @@ async def advantage_spell_chok(client, msg):
         ]
     ])
 
-    # =========================
     # IMDbIO MOVIE SUGGESTIONS
-    # =========================
 
     try:
 
@@ -385,9 +378,7 @@ async def advantage_spell_chok(client, msg):
             if len(movielist) >= 6:
                 break
 
-    # =========================
     # SPELL CHECK MESSAGE
-    # =========================
 
     text = (
         "<blockquote>"
@@ -411,9 +402,7 @@ async def advantage_spell_chok(client, msg):
         "ᴘʟᴇᴀsᴇ ᴜsᴇ ᴛʜᴇ ɢᴏᴏɢʟᴇ ʙᴜᴛᴛᴏɴ.</b>"
     )
 
-    # =========================
     # SHOW SUGGESTIONS
-    # =========================
 
     if movielist:
 
@@ -440,9 +429,7 @@ async def advantage_spell_chok(client, msg):
             "<i>No suggestions available right now.</i>\n"
         )
 
-    # =========================
     # SEND SPELL CHECK MESSAGE
-    # =========================
 
     await msg.reply_text(
         text=text,
@@ -483,41 +470,41 @@ async def auto_filter(client, message):
             )
 
     # =========================
-    # SPELL CHECK IF NO RESULTS
+    # MISSING MOVIES + SPELL CHECK
     # =========================
 
-if not total:
+    if not total:
 
-    query_key = re.sub(
-        r"[^\w]+",
-        " ",
-        query.casefold()
-    ).strip()
+        query_key = re.sub(
+            r"[^\w]+",
+            " ",
+            query.casefold()
+        ).strip()
 
-    if query_key:
+        if query_key:
 
-        await missing_col.update_one(
-            {"normalized_name": query_key},
-            {
-                "$setOnInsert": {
-                    "movie_name": query
-                }
-            },
-            upsert=True
-        )
+            await missing_col.update_one(
+                {"normalized_name": query_key},
+                {
+                    "$setOnInsert": {
+                        "movie_name": query
+                    }
+                },
+                upsert=True
+            )
 
-    try:
+        try:
 
-        await advantage_spell_chok(
-            client,
-            message
-        )
+            await advantage_spell_chok(
+                client,
+                message
+            )
 
-    except Exception as e:
+        except Exception as e:
 
-        print(f"Spelling Check Error: {e}")
+            print(f"Spelling Check Error: {e}")
 
-    return
+        return
 
     # =========================
     # UPDATE SEARCH STATS
