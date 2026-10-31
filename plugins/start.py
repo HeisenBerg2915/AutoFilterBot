@@ -1,3 +1,5 @@
+import asyncio
+
 from bson import ObjectId
 
 from pyrogram import Client, filters
@@ -20,6 +22,38 @@ DATABASES = {
 }
 
 
+# =========================
+# AUTO DELETE FUNCTION
+# =========================
+
+async def auto_delete_file(client, user_id, file_message_id, notice_message_id):
+
+    await asyncio.sleep(120)
+
+    try:
+
+        await client.delete_messages(
+            chat_id=user_id,
+            message_ids=[
+                file_message_id,
+                notice_message_id
+            ]
+        )
+
+        print(
+            f"Auto Deleted File and Important Message "
+            f"for User: {user_id}"
+        )
+
+    except Exception as e:
+
+        print(f"Auto Delete Error: {e}")
+
+
+# =========================
+# START COMMAND
+# =========================
+
 @Client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message):
 
@@ -41,6 +75,7 @@ async def start_command(client, message):
         if LOG_CHANNEL:
 
             try:
+
                 await client.send_message(
                     LOG_CHANNEL,
                     f"🆕 **New User Started Bot!**\n\n"
@@ -50,9 +85,13 @@ async def start_command(client, message):
                 )
 
             except Exception as e:
+
                 print(f"Log Error: {e}")
 
+    # =========================
     # PRIVATE FILE DELIVERY
+    # =========================
+
     if len(message.command) > 1:
 
         payload = message.command[1]
@@ -70,15 +109,19 @@ async def start_command(client, message):
                 collection = DATABASES.get(db_number)
 
                 if collection is None:
+
                     await message.reply_text(
                         "❌ Database Not Available!"
                     )
+
                     return
 
                 if not ObjectId.is_valid(document_id):
+
                     await message.reply_text(
                         "❌ Invalid File Link!"
                     )
+
                     return
 
                 file = await collection.find_one({
@@ -91,9 +134,11 @@ async def start_command(client, message):
                 document_id = payload[2:]
 
                 if not ObjectId.is_valid(document_id):
+
                     await message.reply_text(
                         "❌ Invalid File Link!"
                     )
+
                     return
 
                 file = await files_col.find_one({
@@ -106,9 +151,11 @@ async def start_command(client, message):
                 parts = payload.split("_", 2)
 
                 if len(parts) != 3:
+
                     await message.reply_text(
                         "❌ Invalid File Link!"
                     )
+
                     return
 
                 chat_id = int(parts[1])
@@ -118,6 +165,10 @@ async def start_command(client, message):
                     "chat_id": chat_id,
                     "message_id": message_id
                 })
+
+            # =========================
+            # SEND FILE
+            # =========================
 
             if file is not None:
 
@@ -129,20 +180,52 @@ async def start_command(client, message):
                         "❌ File ID not available.\n\n"
                         "Admin needs to re-index this file."
                     )
+
                     return
 
-                await client.send_cached_media(
+                # SEND FILE TO USER
+                sent_file = await client.send_cached_media(
                     chat_id=user_id,
                     file_id=file_id
                 )
 
+                # IMPORTANT MESSAGE
+                important_text = (
+                    "<blockquote>"
+                    "<b>‼️ IMPORTANT ‼️</b>\n\n"
+                    "ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ɪɴ 2 mins\n\n"
+                    "ᴘʟᴇᴀsᴇ ғᴏʀᴡᴀʀᴅ ᴛʜɪs ᴍᴇssᴀɢᴇ "
+                    "ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ᴏʀ ᴀɴʏ "
+                    "ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛ."
+                    "</blockquote>"
+                )
+
+                # SEND IMPORTANT MESSAGE
+                sent_notice = await client.send_message(
+                    chat_id=user_id,
+                    text=important_text,
+                    parse_mode="html"
+                )
+
+                # SCHEDULE AUTO DELETE
+                asyncio.create_task(
+                    auto_delete_file(
+                        client,
+                        user_id,
+                        sent_file.id,
+                        sent_notice.id
+                    )
+                )
+
                 return
 
+            # FILE NOT FOUND
             if payload.startswith(("f1_", "f2_", "f3_", "f_", "file_")):
 
                 await message.reply_text(
                     "❌ File Not Found!"
                 )
+
                 return
 
         except Exception as e:
@@ -159,7 +242,10 @@ async def start_command(client, message):
 
             return
 
+    # =========================
     # NORMAL START MESSAGE
+    # =========================
+
     text = (
         f"👋 Hello {user.mention}!\n\n"
         "🎬 Welcome to Auto Filter Bot!\n\n"
