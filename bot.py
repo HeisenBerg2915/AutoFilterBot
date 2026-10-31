@@ -7,14 +7,19 @@ from pyrogram import Client, idle
 from pyrogram.types import Message
 
 from config import (
-    API_ID, API_HASH, BOT_TOKEN,
-    REQ_CHANNEL1, REQ_CHANNEL2, LOG_CHANNEL
+    API_ID,
+    API_HASH,
+    BOT_TOKEN,
+    REQ_CHANNEL1,
+    REQ_CHANNEL2,
+    LOG_CHANNEL
 )
+
 from database import init_db, close_db
 
 
 class AutoFilterClient(Client):
-    """Pyrogram client with LeoBot-style message-ID batch iteration."""
+    """Pyrogram client with message-ID batch iteration."""
 
     async def iter_messages(
         self,
@@ -26,17 +31,32 @@ class AutoFilterClient(Client):
         try:
             last_message_id = int(limit)
             current_message_id = max(1, int(offset))
+
         except (TypeError, ValueError):
-            raise ValueError("limit and offset must be valid message IDs")
+            raise ValueError(
+                "limit and offset must be valid message IDs"
+            )
 
         while current_message_id <= last_message_id:
-            batch_end = min(current_message_id + 199, last_message_id)
-            message_ids = list(range(current_message_id, batch_end + 1))
 
-            messages = await self.get_messages(chat_id, message_ids)
+            batch_end = min(
+                current_message_id + 199,
+                last_message_id
+            )
+
+            message_ids = list(
+                range(current_message_id, batch_end + 1)
+            )
+
+            messages = await self.get_messages(
+                chat_id,
+                message_ids
+            )
 
             if not isinstance(messages, (list, tuple)):
-                messages = [messages] if messages is not None else []
+                messages = (
+                    [messages] if messages is not None else []
+                )
 
             for message in messages:
                 yield message
@@ -49,38 +69,57 @@ app = None
 
 
 async def home(request):
-    return web.Response(text="Auto Filter Bot is Running! 🚀")
+    return web.Response(
+        text="Auto Filter Bot is Running! 🚀"
+    )
 
 
 async def start_web_server():
+
     web_app = web.Application()
+
     web_app.router.add_get("/", home)
     web_app.router.add_get("/health", home)
 
     runner = web.AppRunner(web_app)
+
     await runner.setup()
 
     port = int(os.environ.get("PORT", 10000))
-    site = web.TCPSite(runner, "0.0.0.0", port)
+
+    site = web.TCPSite(
+        runner,
+        "0.0.0.0",
+        port
+    )
+
     await site.start()
 
     print(f"Web Server Running on Port {port}")
+
     return runner
 
 
 async def main():
+
     global app
 
     runner = None
     bot_started = False
 
     try:
+
+        # MongoDB
         print("Connecting MongoDB...")
+
         await init_db()
 
+        # Web Server
         print("Starting Web Server...")
+
         runner = await start_web_server()
 
+        # Telegram Client
         print("Creating Telegram Client...")
 
         app = AutoFilterClient(
@@ -91,73 +130,70 @@ async def main():
             plugins={"root": "plugins"},
         )
 
+        # Start Bot
         print("Starting Telegram Bot...")
+
         await app.start()
+
         bot_started = True
 
-        # Prime Pyrogram's peer cache. A numeric -100... ID alone may not
-        # be enough for Pyrogram until the bot has received the channel peer
-        # from its dialogs/updates. The bot must still be a member/admin.
-        print("Loading Telegram chat peers...")
-        try:
-            async for _dialog in app.get_dialogs(limit=200):
-                pass
-            print("Telegram chat peer cache loaded.")
-        except Exception as e:
-            print(f"Chat peer cache warning: {e}")
+        # =================================
+        # MANUAL JOIN REQUEST LINKS
+        # =================================
 
-        # Verify configured channels before using them.
-        for chat_id, label in (
-            (REQ_CHANNEL1, "Join Request Channel 1"),
-            (REQ_CHANNEL2, "Join Request Channel 2"),
-            (LOG_CHANNEL, "File Delivery Log Channel"),
-        ):
-            if chat_id is None:
-                print(f"{label}: Not configured.")
-                continue
-            try:
-                chat = await app.get_chat(chat_id)
-                print(f"{label} accessible: {chat.title or chat.id}")
-            except Exception as e:
-                print(f"{label} is NOT accessible ({chat_id}): {e}")
+        app.req_link1 = os.getenv("REQ_LINK1") or None
+        app.req_link2 = os.getenv("REQ_LINK2") or None
 
-        # Generate Join Request Links
-        app.req_link1 = None
-        app.req_link2 = None
+        print(
+            "Channel 1 Join Request Link:",
+            "Configured" if app.req_link1 else "Not Configured"
+        )
 
-        for channel_id, attribute, label in (
-            (REQ_CHANNEL1, "req_link1", "Channel 1"),
-            (REQ_CHANNEL2, "req_link2", "Channel 2"),
-        ):
-            if channel_id is None:
-                continue
+        print(
+            "Channel 2 Join Request Link:",
+            "Configured" if app.req_link2 else "Not Configured"
+        )
 
-            try:
-                invite = await app.create_chat_invite_link(
-                    chat_id=channel_id,
-                    creates_join_request=True
-                )
+        # =================================
+        # CHANNEL CONFIGURATION
+        # =================================
 
-                setattr(app, attribute, invite.invite_link)
+        print("Checking Channel Configuration...")
 
-                print(f"{label} Join Request Link Created!")
+        print(
+            "Channel 1 ID:",
+            REQ_CHANNEL1 if REQ_CHANNEL1 else "Not Configured"
+        )
 
-            except Exception as e:
-                print(f"{label} Error: {e}")
+        print(
+            "Channel 2 ID:",
+            REQ_CHANNEL2 if REQ_CHANNEL2 else "Not Configured"
+        )
 
+        print(
+            "Log Channel:",
+            LOG_CHANNEL if LOG_CHANNEL else "Not Configured"
+        )
+
+        # Bot Information
         me = await app.get_me()
 
         print("Bot Started Successfully!")
+
         print(f"Bot Username: @{me.username}")
+
         print("Bot is waiting for messages...")
 
         await idle()
 
     except Exception as e:
+
         print(f"Bot Error: {e}")
+
         raise
 
     finally:
+
         if bot_started:
             await app.stop()
 
