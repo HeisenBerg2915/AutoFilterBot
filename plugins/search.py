@@ -12,8 +12,8 @@ PAGE_SIZE = 8
 
 def build_search_filter(query):
     """
-    Normalize search terms so spaces, dots, hyphens,
-    and underscores can match each other.
+    Match complete words while ignoring differences
+    between spaces, dots, hyphens and underscores.
     """
 
     words = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
@@ -21,12 +21,25 @@ def build_search_filter(query):
     if not words:
         return None
 
-    pattern = r"[\W_]+".join(re.escape(word) for word in words)
+    # Allow punctuation or spaces between search words
+    pattern = r"(^|[\W_])" + r"[\W_]+".join(
+        re.escape(word) for word in words
+    ) + r"($|[\W_])"
 
     return {
         "$or": [
-            {"file_name": {"$regex": pattern, "$options": "i"}},
-            {"caption": {"$regex": pattern, "$options": "i"}}
+            {
+                "file_name": {
+                    "$regex": pattern,
+                    "$options": "i"
+                }
+            },
+            {
+                "caption": {
+                    "$regex": pattern,
+                    "$options": "i"
+                }
+            }
         ]
     }
 
