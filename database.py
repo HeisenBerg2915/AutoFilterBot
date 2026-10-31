@@ -5,6 +5,11 @@ from config import (
     MONGO_URL3, DB_NAME3
 )
 
+# JOIN REQUEST DATABASE
+
+reqone = db["reqone"]
+reqtwo = db["reqtwo"]
+
 if not MONGO_URL:
     raise ValueError("MONGO_URL is missing!")
 
