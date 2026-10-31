@@ -46,15 +46,5 @@ MAX_RESULTS = int(os.getenv("MAX_RESULTS", "10"))
 FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL", "")
 
 # TWO JOIN REQUEST CHANNELS
-
-def _channel_id(value):
-    value = (value or "").strip()
-
-    if not value or value.lower() in {"false", "none", "0"}:
-        return None
-
-    return int(value)
-
-
-REQ_CHANNEL1 = _channel_id(os.getenv("REQ_CHANNEL1"))
-REQ_CHANNEL2 = _channel_id(os.getenv("REQ_CHANNEL2"))
+REQ_CHANNEL1 = -1004393586601
+REQ_CHANNEL2 = -1003951518872
