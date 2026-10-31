@@ -5,23 +5,31 @@ from uuid import uuid4
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from database import files_col, stats_col, search_sessions_col
+from database import (
+    files_col,
+    files_col2,
+    files_col3,
+    stats_col,
+    search_sessions_col
+)
 
 PAGE_SIZE = 8
 
+# Available databases
+DATABASES = [
+    (files_col, "1"),
+    (files_col2, "2"),
+    (files_col3, "3")
+]
+
 
 def build_search_filter(query):
-    """
-    Match complete words while ignoring differences
-    between spaces, dots, hyphens and underscores.
-    """
 
     words = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
 
     if not words:
         return None
 
-    # Allow punctuation or spaces between search words
     pattern = r"(^|[\W_])" + r"[\W_]+".join(
         re.escape(word) for word in words
     ) + r"($|[\W_])"
@@ -48,7 +56,7 @@ def get_file_buttons(client, results, session_id, page, total_pages):
 
     buttons = []
 
-    for file in results:
+    for file, db_number in results:
 
         file_name = (
             file.get("file_name")
@@ -64,10 +72,9 @@ def get_file_buttons(client, results, session_id, page, total_pages):
         else:
             size_text = f"{size_mb:.0f}MB"
 
-        # Use MongoDB document ID for a short Telegram deep link
         document_id = str(file["_id"])
 
-        payload = f"f_{document_id}"
+        payload = f"f{db_number}_{document_id}"
 
         buttons.append([
             InlineKeyboardButton(
@@ -100,6 +107,34 @@ def get_file_buttons(client, results, session_id, page, total_pages):
     return InlineKeyboardMarkup(buttons)
 
 
+async def get_search_results(search_filter, limit):
+
+    all_results = []
+
+    for collection, db_number in DATABASES:
+
+        if collection is None:
+            continue
+
+        results = await collection.find(
+            search_filter
+        ).sort(
+            "date", -1
+        ).limit(
+            limit
+        ).to_list(length=limit)
+
+        for file in results:
+            all_results.append((file, db_number))
+
+    all_results.sort(
+        key=lambda item: item[0].get("date") or datetime.min,
+        reverse=True
+    )
+
+    return all_results
+
+
 async def show_page(client, message, query, session_id, page):
 
     search_filter = build_search_filter(query)
@@ -107,19 +142,27 @@ async def show_page(client, message, query, session_id, page):
     if not search_filter:
         return
 
-    total = await files_col.count_documents(search_filter)
+    total = 0
+
+    for collection, _ in DATABASES:
+
+        if collection is not None:
+            total += await collection.count_documents(search_filter)
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
     page = max(0, min(page, total_pages - 1))
 
-    results = await files_col.find(
-        search_filter
-    ).skip(
-        page * PAGE_SIZE
-    ).limit(
-        PAGE_SIZE
-    ).to_list(length=PAGE_SIZE)
+    limit = (page + 1) * PAGE_SIZE
+
+    all_results = await get_search_results(
+        search_filter,
+        limit
+    )
+
+    results = all_results[
+        page * PAGE_SIZE:(page + 1) * PAGE_SIZE
+    ]
 
     keyboard = get_file_buttons(
         client,
@@ -150,7 +193,12 @@ async def auto_filter(client, message):
     if not search_filter:
         return
 
-    total = await files_col.count_documents(search_filter)
+    total = 0
+
+    for collection, _ in DATABASES:
+
+        if collection is not None:
+            total += await collection.count_documents(search_filter)
 
     if not total:
         return
@@ -172,11 +220,12 @@ async def auto_filter(client, message):
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
-    results = await files_col.find(
-        search_filter
-    ).limit(
+    results = await get_search_results(
+        search_filter,
         PAGE_SIZE
-    ).to_list(length=PAGE_SIZE)
+    )
+
+    results = results[:PAGE_SIZE]
 
     keyboard = get_file_buttons(
         client,
@@ -202,6 +251,7 @@ async def pagination_callback(client, callback_query):
         page = int(page)
 
     except (ValueError, AttributeError):
+
         await callback_query.answer(
             "Invalid Page!",
             show_alert=True
@@ -213,6 +263,7 @@ async def pagination_callback(client, callback_query):
     })
 
     if not session:
+
         await callback_query.answer(
             "⌛ Pagination expired! Please search again.",
             show_alert=True
@@ -220,6 +271,7 @@ async def pagination_callback(client, callback_query):
         return
 
     if callback_query.message.chat.id != session["chat_id"]:
+
         await callback_query.answer(
             "Invalid Session!",
             show_alert=True
