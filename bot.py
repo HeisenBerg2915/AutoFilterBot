@@ -214,7 +214,52 @@ async def main():
 
         bot_started = True
 
+        # =========================
+        # LOAD LOG CHANNEL
+        # =========================
+
+        if LOG_CHANNEL:
+
+            print("Loading Log Channel...")
+
+            try:
+
+                log_channel_found = False
+
+                async for dialog in app.get_dialogs():
+
+                    if dialog.chat.id == LOG_CHANNEL:
+
+                        log_channel_found = True
+
+                        print(
+                            "Log Channel Found Successfully!"
+                        )
+
+                        break
+
+                if not log_channel_found:
+
+                    chat = await app.get_chat(LOG_CHANNEL)
+
+                    print(
+                        f"Log Channel Resolved: {chat.id}"
+                    )
+
+            except Exception as e:
+
+                print(
+                    f"Log Channel Loading Error: "
+                    f"{type(e).__name__}: {e}"
+                )
+
+        else:
+
+            print("LOG_CHANNEL Not Configured!")
+
+        # =========================
         # BOT INFORMATION
+        # =========================
 
         me = await app.get_me()
 
