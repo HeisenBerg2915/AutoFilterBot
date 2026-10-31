@@ -12,6 +12,8 @@ from database import (
     files_col,
     files_col2,
     files_col3
+    reqone,
+    reqtwo
 )
 
 from tag_cleaner import clean_file_name
