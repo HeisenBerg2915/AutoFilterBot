@@ -14,6 +14,8 @@ from database import (
     files_col3
 )
 
+from tag_cleaner import clean_file_name
+
 from config import LOG_CHANNEL, UPDATE_CHANNEL, UPDATE_GROUP
 
 
