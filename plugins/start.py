@@ -33,12 +33,59 @@ DATABASES = {
 
 
 # =========================
+# LOG CHANNEL
+# =========================
+
+_log_chat_id = None
+
+
+async def send_log(client, text):
+
+    global _log_chat_id
+
+    if not LOG_CHANNEL:
+        return
+
+    try:
+
+        if _log_chat_id is None:
+
+            # Load Telegram dialogs
+            async for dialog in client.get_dialogs():
+
+                if dialog.chat.id == LOG_CHANNEL:
+
+                    _log_chat_id = dialog.chat.id
+                    break
+
+            # Resolve channel
+            if _log_chat_id is None:
+
+                chat = await client.get_chat(LOG_CHANNEL)
+
+                _log_chat_id = chat.id
+
+        await client.send_message(
+            chat_id=_log_chat_id,
+            text=text
+        )
+
+    except Exception as e:
+
+        print(
+            f"Delivery Log Error: "
+            f"{type(e).__name__}: {e}"
+        )
+
+
+# =========================
 # CHECK JOIN REQUESTS
 # =========================
 
 async def check_join_requests(user_id):
 
     try:
+
         request_one = await reqone.find_one({
             "user_id": user_id
         })
@@ -50,7 +97,9 @@ async def check_join_requests(user_id):
         return bool(request_one and request_two)
 
     except Exception as e:
+
         print(f"Join Request Check Error: {e}")
+
         return False
 
 
@@ -66,6 +115,7 @@ def join_request_buttons(client, payload):
     buttons = []
 
     if link1:
+
         buttons.append([
             InlineKeyboardButton(
                 "📢 JOIN CHANNEL 1",
@@ -74,6 +124,7 @@ def join_request_buttons(client, payload):
         ])
 
     if link2:
+
         buttons.append([
             InlineKeyboardButton(
                 "📢 JOIN CHANNEL 2",
@@ -143,6 +194,7 @@ async def get_file(payload):
             })
 
     except Exception as e:
+
         print(f"Get File Error: {e}")
 
     return None
@@ -176,6 +228,7 @@ async def auto_delete_file(
         print(f"Auto Deleted: {user_id}")
 
     except Exception as e:
+
         print(f"Auto Delete Error: {e}")
 
 
@@ -222,28 +275,18 @@ async def send_file_to_user(client, user, file):
         parse_mode=ParseMode.HTML
     )
 
-    # LOG
+    # DELIVERY LOG
 
-    if LOG_CHANNEL:
+    log_text = (
+        "📥 FILE DELIVERY SUCCESS\n\n"
+        f"👤 User: {escape(user.first_name or 'Unknown')}\n"
+        f"🆔 User ID: {user_id}\n"
+        f"📛 Username: @{escape(user.username or 'None')}\n"
+        f"📁 File: {escape(str(file_name))}\n\n"
+        "✅ File successfully sent."
+    )
 
-        try:
-
-            log_text = (
-                "📥 FILE DELIVERY SUCCESS\n\n"
-                f"👤 User: {escape(user.first_name)}\n"
-                f"🆔 User ID: {user_id}\n"
-                f"📛 Username: @{escape(user.username or 'None')}\n"
-                f"📁 File: {escape(str(file_name))}\n\n"
-                "✅ File successfully sent."
-            )
-
-            await client.send_message(
-                LOG_CHANNEL,
-                log_text
-            )
-
-        except Exception as e:
-            print(f"Delivery Log Error: {e}")
+    await send_log(client, log_text)
 
     # IMPORTANT MESSAGE
 
@@ -262,6 +305,7 @@ async def send_file_to_user(client, user, file):
         )
 
     except Exception as e:
+
         print(f"Important Message Error: {e}")
 
     # AUTO DELETE
@@ -341,26 +385,17 @@ async def start_command(client, message):
             "is_bot": user.is_bot
         })
 
-        if LOG_CHANNEL:
+        await send_log(
+            client,
+            (
+                "🆕 NEW USER STARTED BOT!\n\n"
+                f"👤 Name: {escape(user.first_name or 'Unknown')}\n"
+                f"🆔 ID: {user_id}\n"
+                f"📛 Username: @{escape(user.username or 'None')}"
+            )
+        )
 
-            try:
-
-                await client.send_message(
-                    LOG_CHANNEL,
-                    (
-                        "🆕 NEW USER STARTED BOT!\n\n"
-                        f"👤 Name: {user.first_name}\n"
-                        f"🆔 ID: {user_id}\n"
-                        f"📛 Username: @{user.username or 'None'}"
-                    )
-                )
-
-            except Exception as e:
-                print(f"User Log Error: {e}")
-
-    # =========================
     # FILE DEEP LINK
-    # =========================
 
     if len(message.command) > 1:
 
@@ -382,8 +417,6 @@ async def start_command(client, message):
 
                     return
 
-                # CHECK BOTH REQUESTS
-
                 joined = await check_join_requests(user_id)
 
                 if not joined:
@@ -402,8 +435,6 @@ async def start_command(client, message):
                     )
 
                     return
-
-                # BOTH REQUESTS FOUND
 
                 await send_file_to_user(
                     client,
@@ -427,9 +458,7 @@ async def start_command(client, message):
 
                 return
 
-    # =========================
     # NORMAL START MESSAGE
-    # =========================
 
     text = (
         f"👋 Hello {user.mention}!\n\n"
@@ -455,12 +484,9 @@ async def commands_callback(client, callback_query):
     text = (
         "📚 **BOT COMMANDS**\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
-
         "👤 **USER COMMANDS**\n\n"
         "/start - Start the bot\n\n"
-
         "🔐 **ADMIN COMMANDS**\n\n"
-
         "/id - Get ID\n"
         "/missing - Missing Movies\n"
         "/index - Index Files\n"
@@ -470,7 +496,6 @@ async def commands_callback(client, callback_query):
         "/purge_one - Clear Channel 1 Requests\n"
         "/purge_two - Clear Channel 2 Requests\n"
         "/reqlinks - Get Request Links\n\n"
-
         "━━━━━━━━━━━━━━━━━━\n"
         "⚠️ Admin Commands can only be used by Admins."
     )
@@ -534,8 +559,6 @@ async def try_again_callback(client, callback_query):
         1
     )[1]
 
-    # CHECK BOTH REQUESTS AGAIN
-
     joined = await check_join_requests(user_id)
 
     if not joined:
@@ -547,8 +570,6 @@ async def try_again_callback(client, callback_query):
 
         return
 
-    # FIND FILE
-
     file = await get_file(payload)
 
     if not file:
@@ -559,8 +580,6 @@ async def try_again_callback(client, callback_query):
         )
 
         return
-
-    # SEND FILE
 
     try:
 
