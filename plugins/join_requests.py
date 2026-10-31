@@ -8,32 +8,69 @@ from database import reqone, reqtwo
 async def track_join_request(client, request: ChatJoinRequest):
 
     user_id = request.from_user.id
+    chat_id = request.chat.id
 
     invite = request.invite_link
-    invite_url = invite.invite_link if invite else None
+
+    if not invite:
+        print(f"Join Request Without Invite Link: {user_id}")
+        return
+
+    invite_url = invite.invite_link
 
     try:
 
-        if invite_url == getattr(client, "req_link1", None):
+        link1 = getattr(client, "req_link1", None)
+        link2 = getattr(client, "req_link2", None)
+
+        # CHANNEL 1 REQUEST
+
+        if link1 and invite_url == link1:
 
             await reqone.update_one(
                 {"user_id": user_id},
-                {"$set": {"user_id": user_id}},
+                {
+                    "$set": {
+                        "user_id": user_id,
+                        "channel_id": chat_id,
+                        "invite_link": invite_url
+                    }
+                },
                 upsert=True
             )
 
-            print(f"Channel 1 Request Saved: {user_id}")
+            print(
+                f"✅ CHANNEL 1 REQUEST SAVED: {user_id}"
+            )
 
-        elif invite_url == getattr(client, "req_link2", None):
+        # CHANNEL 2 REQUEST
+
+        elif link2 and invite_url == link2:
 
             await reqtwo.update_one(
                 {"user_id": user_id},
-                {"$set": {"user_id": user_id}},
+                {
+                    "$set": {
+                        "user_id": user_id,
+                        "channel_id": chat_id,
+                        "invite_link": invite_url
+                    }
+                },
                 upsert=True
             )
 
-            print(f"Channel 2 Request Saved: {user_id}")
+            print(
+                f"✅ CHANNEL 2 REQUEST SAVED: {user_id}"
+            )
+
+        else:
+
+            print(
+                f"⚠️ UNKNOWN INVITE LINK: {user_id}"
+            )
 
     except Exception as e:
 
-        print(f"Join Request Error: {e}")
+        print(
+            f"❌ JOIN REQUEST ERROR: {type(e).__name__}: {e}"
+        )
