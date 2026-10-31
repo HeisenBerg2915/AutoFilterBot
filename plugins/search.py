@@ -16,6 +16,7 @@ from database import (
     files_col3,
     stats_col,
     search_sessions_col
+    missing_col
 )
 
 import imdbio
@@ -486,20 +487,38 @@ async def auto_filter(client, message):
     # SPELL CHECK IF NO RESULTS
     # =========================
 
-    if not total:
+if not total:
 
-        try:
+    query_key = re.sub(
+        r"[^\w]+",
+        " ",
+        query.casefold()
+    ).strip()
 
-            await advantage_spell_chok(
-                client,
-                message
-            )
+    if query_key:
 
-        except Exception as e:
+        await missing_col.update_one(
+            {"normalized_name": query_key},
+            {
+                "$setOnInsert": {
+                    "movie_name": query
+                }
+            },
+            upsert=True
+        )
 
-            print(f"Spelling Check Error: {e}")
+    try:
 
-        return
+        await advantage_spell_chok(
+            client,
+            message
+        )
+
+    except Exception as e:
+
+        print(f"Spelling Check Error: {e}")
+
+    return
 
     # =========================
     # UPDATE SEARCH STATS
