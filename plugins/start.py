@@ -3,8 +3,21 @@ from bson import ObjectId
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from database import users_col, files_col
+from database import (
+    users_col,
+    files_col,
+    files_col2,
+    files_col3
+)
+
 from config import LOG_CHANNEL, UPDATE_CHANNEL, UPDATE_GROUP
+
+
+DATABASES = {
+    "1": files_col,
+    "2": files_col2,
+    "3": files_col3
+}
 
 
 @Client.on_message(filters.command("start") & filters.private)
@@ -17,6 +30,7 @@ async def start_command(client, message):
     old_user = await users_col.find_one({"id": user_id})
 
     if not old_user:
+
         await users_col.insert_one({
             "id": user_id,
             "first_name": user.first_name,
@@ -25,6 +39,7 @@ async def start_command(client, message):
         })
 
         if LOG_CHANNEL:
+
             try:
                 await client.send_message(
                     LOG_CHANNEL,
@@ -33,6 +48,7 @@ async def start_command(client, message):
                     f"🆔 ID: `{user_id}`\n"
                     f"📛 Username: @{user.username or 'None'}"
                 )
+
             except Exception as e:
                 print(f"Log Error: {e}")
 
@@ -42,28 +58,57 @@ async def start_command(client, message):
         payload = message.command[1]
 
         try:
+
             file = None
 
-            # NEW FILE-ID METHOD
-            if payload.startswith("f_"):
+            # NEW DATABASE-SPECIFIC FILE LINKS
+            if payload.startswith(("f1_", "f2_", "f3_")):
+
+                db_number = payload[1]
+                document_id = payload[3:]
+
+                collection = DATABASES.get(db_number)
+
+                if collection is None:
+                    await message.reply_text(
+                        "❌ Database Not Available!"
+                    )
+                    return
+
+                if not ObjectId.is_valid(document_id):
+                    await message.reply_text(
+                        "❌ Invalid File Link!"
+                    )
+                    return
+
+                file = await collection.find_one({
+                    "_id": ObjectId(document_id)
+                })
+
+            # OLD FILE LINK COMPATIBILITY
+            elif payload.startswith("f_"):
 
                 document_id = payload[2:]
 
                 if not ObjectId.is_valid(document_id):
-                    await message.reply_text("❌ Invalid File Link!")
+                    await message.reply_text(
+                        "❌ Invalid File Link!"
+                    )
                     return
 
                 file = await files_col.find_one({
                     "_id": ObjectId(document_id)
                 })
 
-            # OLD LINK COMPATIBILITY
+            # OLDER CHAT/MESSAGE LINK COMPATIBILITY
             elif payload.startswith("file_"):
 
                 parts = payload.split("_", 2)
 
                 if len(parts) != 3:
-                    await message.reply_text("❌ Invalid File Link!")
+                    await message.reply_text(
+                        "❌ Invalid File Link!"
+                    )
                     return
 
                 chat_id = int(parts[1])
@@ -79,6 +124,7 @@ async def start_command(client, message):
                 file_id = file.get("file_id")
 
                 if not file_id:
+
                     await message.reply_text(
                         "❌ File ID not available.\n\n"
                         "Admin needs to re-index this file."
@@ -92,8 +138,11 @@ async def start_command(client, message):
 
                 return
 
-            if payload.startswith(("f_", "file_")):
-                await message.reply_text("❌ File Not Found!")
+            if payload.startswith(("f1_", "f2_", "f3_", "f_", "file_")):
+
+                await message.reply_text(
+                    "❌ File Not Found!"
+                )
                 return
 
         except Exception as e:
