@@ -18,13 +18,20 @@ async def track_join_request(client, request: ChatJoinRequest):
 
     invite_url = invite.invite_link
 
+    print("========== JOIN REQUEST DEBUG ==========")
+    print("USER ID:", user_id)
+    print("CHAT ID:", chat_id)
+    print("RECEIVED LINK:", repr(invite_url))
+    print("CONFIG LINK 1:", repr(getattr(client, "req_link1", None)))
+    print("CONFIG LINK 2:", repr(getattr(client, "req_link2", None)))
+    print("========================================")
+
     try:
 
         link1 = getattr(client, "req_link1", None)
         link2 = getattr(client, "req_link2", None)
 
         # CHANNEL 1 REQUEST
-
         if link1 and invite_url == link1:
 
             await reqone.update_one(
@@ -39,12 +46,9 @@ async def track_join_request(client, request: ChatJoinRequest):
                 upsert=True
             )
 
-            print(
-                f"✅ CHANNEL 1 REQUEST SAVED: {user_id}"
-            )
+            print(f"✅ CHANNEL 1 REQUEST SAVED: {user_id}")
 
         # CHANNEL 2 REQUEST
-
         elif link2 and invite_url == link2:
 
             await reqtwo.update_one(
@@ -59,15 +63,11 @@ async def track_join_request(client, request: ChatJoinRequest):
                 upsert=True
             )
 
-            print(
-                f"✅ CHANNEL 2 REQUEST SAVED: {user_id}"
-            )
+            print(f"✅ CHANNEL 2 REQUEST SAVED: {user_id}")
 
         else:
 
-            print(
-                f"⚠️ UNKNOWN INVITE LINK: {user_id}"
-            )
+            print(f"⚠️ UNKNOWN INVITE LINK: {user_id}")
 
     except Exception as e:
 
