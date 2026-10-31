@@ -218,33 +218,24 @@ async def main():
         # LOAD LOG CHANNEL
         # =========================
 
+        app.log_channel_id = None
+
         if LOG_CHANNEL:
 
             print("Loading Log Channel...")
 
             try:
 
-                log_channel_found = False
+                log_chat = await app.get_chat(
+                    LOG_CHANNEL
+                )
 
-                async for dialog in app.get_dialogs():
+                app.log_channel_id = log_chat.id
 
-                    if dialog.chat.id == LOG_CHANNEL:
-
-                        log_channel_found = True
-
-                        print(
-                            "Log Channel Found Successfully!"
-                        )
-
-                        break
-
-                if not log_channel_found:
-
-                    chat = await app.get_chat(LOG_CHANNEL)
-
-                    print(
-                        f"Log Channel Resolved: {chat.id}"
-                    )
+                print(
+                    "Log Channel Loaded Successfully:",
+                    app.log_channel_id
+                )
 
             except Exception as e:
 
