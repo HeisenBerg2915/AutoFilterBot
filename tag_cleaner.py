@@ -66,7 +66,7 @@ TAGS = [
     "www_Movcr_cc", "@WMR", "@WorldCinemaToday",
     "@X265 E4E", "@YTSLT", "@cinemaheist",
     "@trolldcompany", "@yamandanmovies",
-    "@Zee_Keralam_HD", "F&T",
+    "@Zee_Keralam_HD", "F&T", "@ALBCINEMASALL",
 
     # =========================
     # WEBSITE TAGS
@@ -76,7 +76,6 @@ TAGS = [
     "www_DVDWap_Com_",
     "www_TamilMV_pw",
     "www_1TamilMV",
-    "ALBCINEMASALL",
     "www_1TamilMV_fun",
     "www_1TamilMV_rodeo",
     "www_1TamilMV_fans",
