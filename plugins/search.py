@@ -20,6 +20,7 @@ from database import (
 
 import imdbio
 
+from tag_cleaner import clean_file_name
 
 PAGE_SIZE = 8
 
