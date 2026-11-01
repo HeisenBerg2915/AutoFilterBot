@@ -19,6 +19,9 @@ from helpers.database_router import (
 index_requests = {}
 index_jobs = {}
 
+# Prevent multiple indexing processes
+indexing_lock = asyncio.Lock()
+
 MEDIA_TYPES = (
     "document",
     "video",
@@ -294,9 +297,29 @@ async def run_indexing(
     status_message,
     target
 ):
+    if indexing_lock.locked():
+        await status_message.edit_text(
+            "⚠️ മറ്റൊരു Indexing ഇപ്പോൾ പ്രവർത്തിക്കുന്നുണ്ട്. "
+            "അത് പൂർത്തിയായ ശേഷം വീണ്ടും ശ്രമിക്കുക."
+        )
+        return
 
+    async with indexing_lock:
+        await _run_indexing(
+            client,
+            request_id,
+            status_message,
+            target
+        )
+
+
+async def _run_indexing(
+    client,
+    request_id,
+    status_message,
+    target
+):
     request = index_requests.get(request_id)
-
     if not request:
 
         await status_message.edit_text(
@@ -421,7 +444,7 @@ async def run_indexing(
 
             # Live progress update
 
-            if checked % 100 == 0:
+            if checked % 200 == 0:
 
                 try:
 
