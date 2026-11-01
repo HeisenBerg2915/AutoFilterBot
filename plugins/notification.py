@@ -21,16 +21,19 @@ from database import (
 
 
 # =====================================
-# NOTIFICATION GROUP LINK
+# SETTINGS
 # =====================================
 
-GROUP_LINK = os.getenv(
-    "NOTIFICATION_GROUP_LINK", ""
-)
+GROUP_LINK = os.getenv("NOTIFICATION_GROUP_LINK", "")
+
+BATCH_WAIT = 60
+
+pending_batches = {}
+batch_tasks = {}
 
 
 # =====================================
-# FILE DETAILS
+# FILE SIZE
 # =====================================
 
 def format_size(size):
@@ -49,6 +52,46 @@ def format_size(size):
 
     return f"{size:.2f} PB"
 
+
+# =====================================
+# CLEAN MOVIE NAME
+# =====================================
+
+def clean_movie_name(name):
+
+    name = os.path.splitext(name)[0]
+
+    name = re.sub(
+        r"(2160p|4k|1080p|720p|480p|360p)",
+        "",
+        name,
+        flags=re.IGNORECASE
+    )
+
+    name = re.sub(
+        r"\b(Malayalam|Tamil|Telugu|Hindi|English|Kannada)\b",
+        "",
+        name,
+        flags=re.IGNORECASE
+    )
+
+    name = re.sub(
+        r"\b\d+(\.\d+)?\s*(GB|MB|KB)\b",
+        "",
+        name,
+        flags=re.IGNORECASE
+    )
+
+    name = re.sub(r"[\[\](){}._-]+", " ", name)
+
+    name = re.sub(r"\s+", " ", name)
+
+    return name.strip()
+
+
+# =====================================
+# FILE DETAILS
+# =====================================
 
 def get_file_details(message):
 
@@ -78,28 +121,21 @@ def get_file_details(message):
     if not media:
         return None
 
-    file_name = getattr(
-        media,
-        "file_name",
-        None
-    )
+    file_name = getattr(media, "file_name", None)
 
     caption = message.caption or ""
 
     if file_name:
-
-        movie_name = os.path.splitext(
-            file_name
-        )[0]
-
+        original_name = os.path.splitext(file_name)[0]
     else:
+        original_name = caption.split("\n")[0].strip()
 
-        movie_name = caption.split("\n")[0].strip()
+    movie_name = clean_movie_name(original_name)
 
     if not movie_name:
         movie_name = "New Movie"
 
-    combined_text = movie_name + " " + caption
+    combined_text = original_name + " " + caption
 
     quality_match = re.search(
         r"(2160p|4k|1080p|720p|480p|360p)",
@@ -154,24 +190,34 @@ def get_file_details(message):
 
 
 # =====================================
-# SEND NOTIFICATION TO USERS
+# SEND BATCH NOTIFICATION
 # =====================================
 
-async def send_movie_notification(client, details):
+async def send_movie_notification(client, details_list):
+
+    if not details_list:
+        return
+
+    movie_name = details_list[0]["movie_name"]
 
     text = (
         "━━━━━━━━━━━━━━━━━━━━\n"
         "🎬 NEW MOVIE AVAILABLE\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📂 Movie: {movie_name}\n\n"
+    )
 
-        f"📂 Movie: {details['movie_name']}\n\n"
+    for index, details in enumerate(details_list, 1):
 
-        f"🎥 Quality: {details['quality']}\n"
-        f"🌐 Language: {details['language']}\n"
-        f"📦 Size: {format_size(details['file_size'])}\n\n"
+        text += (
+            f"📁 File {index}\n"
+            f"🎥 Quality: {details['quality']}\n"
+            f"🌐 Language: {details['language']}\n"
+            f"📦 Size: {format_size(details['file_size'])}\n\n"
+        )
 
+    text += (
         "🍿 NOW AVAILABLE !\n\n"
-
         "━━━━━━━━━━━━━━━━━━━━"
     )
 
@@ -191,10 +237,7 @@ async def send_movie_notification(client, details):
     success = 0
     failed = 0
 
-    async for user in users_col.find(
-        {},
-        {"id": 1}
-    ):
+    async for user in users_col.find({}, {"id": 1}):
 
         user_id = user.get("id")
 
@@ -244,11 +287,78 @@ async def send_movie_notification(client, details):
         await asyncio.sleep(0.05)
 
     print(
-        "\n========== NOTIFICATION REPORT ==========\n"
-        f"Movie: {details['movie_name']}\n"
+        "\n========== BATCH NOTIFICATION REPORT ==========\n"
+        f"Movie: {movie_name}\n"
+        f"Files: {len(details_list)}\n"
         f"Success: {success}\n"
         f"Failed: {failed}\n"
-        "========================================="
+        "=============================================="
+    )
+
+
+# =====================================
+# BATCH TIMER
+# =====================================
+
+async def process_batch(client, batch_key):
+
+    try:
+
+        await asyncio.sleep(BATCH_WAIT)
+
+        details_list = pending_batches.pop(
+            batch_key,
+            []
+        )
+
+        batch_tasks.pop(batch_key, None)
+
+        if details_list:
+
+            await send_movie_notification(
+                client,
+                details_list
+            )
+
+            print(
+                f"Batch Completed: {details_list[0]['movie_name']}"
+            )
+
+    except asyncio.CancelledError:
+
+        return
+
+    except Exception as e:
+
+        print(f"Batch Processing Error: {e}")
+
+
+# =====================================
+# ADD FILE TO BATCH
+# =====================================
+
+async def add_to_batch(client, details):
+
+    batch_key = details["movie_name"].lower().strip()
+
+    if batch_key not in pending_batches:
+        pending_batches[batch_key] = []
+
+    pending_batches[batch_key].append(details)
+
+    old_task = batch_tasks.get(batch_key)
+
+    if old_task and not old_task.done():
+
+        old_task.cancel()
+
+    batch_tasks[batch_key] = asyncio.create_task(
+        process_batch(client, batch_key)
+    )
+
+    print(
+        f"File Added To Batch: {details['movie_name']} "
+        f"| Total Files: {len(pending_batches[batch_key])}"
     )
 
 
@@ -295,13 +405,11 @@ async def notification_file_handler(client, message):
 
         return
 
-    # SAVE TO SEPARATE DATABASE COLLECTION
+    # SAVE FILE
 
     try:
 
-        await notification_files_col.insert_one(
-            details
-        )
+        await notification_files_col.insert_one(details)
 
     except DuplicateKeyError:
 
@@ -311,9 +419,7 @@ async def notification_file_handler(client, message):
 
     except Exception as e:
 
-        print(
-            f"MongoDB Save Error: {e}"
-        )
+        print(f"MongoDB Save Error: {e}")
 
         return
 
@@ -322,13 +428,9 @@ async def notification_file_handler(client, message):
         details["movie_name"]
     )
 
-    # SEND TO ALL STARTED USERS
+    # ADD TO 60 SECOND BATCH
 
-    await send_movie_notification(
+    await add_to_batch(
         client,
         details
     )
-
-    print(
-        "Movie Notification Completed!"
-  )
