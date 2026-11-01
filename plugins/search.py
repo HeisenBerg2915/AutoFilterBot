@@ -16,18 +16,17 @@ from database import (
     files_col3,
     stats_col,
     search_sessions_col,
-    missing_col,
-    notify_requests_col,
-    groups_col
+    missing_col
 )
-
-from config import UPDATE_GROUP
 
 import imdbio
 
 from tag_cleaner import clean_file_name
 
 PAGE_SIZE = 8
+
+# നിങ്ങളുടെ ഗ്രൂപ്പിന്റെ Invite Link
+SEARCH_GROUP_LINK = "https://t.me/+Ik14BdOewjQzYjI1"
 
 
 # =========================
@@ -637,152 +636,15 @@ async def pagination_callback(client, callback_query):
 
 
 # =========================
-# TEMPORARY SEARCH NOW
+# SEARCH NOW - OPEN GROUP
 # =========================
-
-async def _delete_temporary_result(client, chat_id, message_id):
-
-    await asyncio.sleep(600)
-
-    try:
-        await client.delete_messages(chat_id, message_id)
-    except Exception as e:
-        print(f"Temporary Result Delete Error: {e}")
-
-
-def _message_link(chat, message_id):
-
-    if getattr(chat, "username", None):
-        return f"https://t.me/{chat.username}/{message_id}"
-
-    internal_id = str(chat.id)
-
-    if internal_id.startswith("-100"):
-        return f"https://t.me/c/{internal_id[4:]}/{message_id}"
-
-    return None
-
 
 @Client.on_callback_query(
     filters.regex(r"^searchnow:")
 )
 async def search_now_callback(client, callback_query):
 
-    request_id = callback_query.data.split(":", 1)[1]
-
-    request = await notify_requests_col.find_one({
-        "_id": request_id
-    })
-
-    if not request or request.get("user_id") != callback_query.from_user.id:
-        await callback_query.answer(
-            "Request not found!",
-            show_alert=True
-        )
-        return
-
-    query = request.get("movie_name", "").strip()
-
-    search_filter = build_search_filter(query)
-
-    if not search_filter:
-        await callback_query.answer(
-            "Invalid movie name!",
-            show_alert=True
-        )
-        return
-
-    total = 0
-
-    for collection, _ in DATABASES:
-        if collection is not None:
-            total += await collection.count_documents(search_filter)
-
-    if not total:
-        await callback_query.answer(
-            "Movie result not found yet. Please try later.",
-            show_alert=True
-        )
-        return
-
-    target = None
-
-    if UPDATE_GROUP:
-        try:
-            target = await client.get_chat(UPDATE_GROUP)
-        except Exception as e:
-            print(f"Search Group Error: {e}")
-
-    if target is None:
-        group = await groups_col.find_one({})
-
-        if group:
-            try:
-                target = await client.get_chat(
-                    group.get("username") or group.get("id")
-                )
-            except Exception as e:
-                print(f"Saved Group Error: {e}")
-
-    if target is None:
-        await callback_query.answer(
-            "Search group is not configured!",
-            show_alert=True
-        )
-        return
-
-    session_id = uuid4().hex
-
-    await search_sessions_col.insert_one({
-        "_id": session_id,
-        "query": query,
-        "chat_id": target.id,
-        "created_at": datetime.utcnow(),
-        "temporary": True
-    })
-
-    total_pages = max(
-        1,
-        (total + PAGE_SIZE - 1) // PAGE_SIZE
+    await callback_query.answer(
+        "🔎 Open the group and search your movie!",
+        url=SEARCH_GROUP_LINK
     )
-
-    results = await get_search_results(
-        search_filter,
-        PAGE_SIZE
-    )
-
-    keyboard = get_file_buttons(
-        client,
-        results[:PAGE_SIZE],
-        session_id,
-        0,
-        total_pages
-    )
-
-    result_message = await client.send_message(
-        target.id,
-        f"🔎 Search Results: {query}\n\n"
-        f"📁 Found: {total} Files\n"
-        f"📄 Page: 1/{total_pages}",
-        reply_markup=keyboard
-    )
-
-    asyncio.create_task(
-        _delete_temporary_result(
-            client,
-            target.id,
-            result_message.id
-        )
-    )
-
-    link = _message_link(target, result_message.id)
-
-    if link:
-        await callback_query.answer(
-            "✅ Search result posted in the group!",
-            url=link
-        )
-    else:
-        await callback_query.answer(
-            "✅ Result posted. Open the group to view it."
-        )
