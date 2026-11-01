@@ -34,7 +34,7 @@ ADMINS = [
 # Channel & Group Configuration
 # Accept either a numeric channel ID (-100...) or a public @username.
 # Set LOG_CHANNEL empty to disable delivery logging.
-_log_channel = os.getenv("LOG_CHANNEL", "-1004304801193").strip()
+_log_channel = os.getenv("LOG_CHANNEL", "-1004329564715").strip()
 if not _log_channel:
     LOG_CHANNEL = None
 elif _log_channel.lstrip("-").isdigit():
