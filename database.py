@@ -22,6 +22,7 @@ reqtwo = db["reqtwo"]
 users_col = db["users"]
 groups_col = db["groups"]
 files_col = db["files"]
+notification_files_col = db["notification_files"]
 stats_col = db["stats"]
 search_sessions_col = db["search_sessions"]
 
@@ -57,6 +58,11 @@ async def init_db():
     await files_col.create_index("file_id")
     await files_col.create_index("file_name")
     await files_col.create_index("file_size")
+
+    await notification_files_col.create_index(
+        "file_unique_id",
+        unique=True
+    )
 
     await reqone.create_index("user_id", unique=True)
     await reqtwo.create_index("user_id", unique=True)
