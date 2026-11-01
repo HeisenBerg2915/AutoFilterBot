@@ -340,11 +340,11 @@ def welcome_buttons(client):
         [
             InlineKeyboardButton(
                 "ᴊᴏɪɴ ᴛᴏ ɢʀᴏᴜᴘ",
-                url=UPDATE_GROUP
+                url="https://t.me/+Ik14BdOewjQzYjI1",
             ),
             InlineKeyboardButton(
                 "ᴊᴏɪɴ ᴛᴏ ᴄʜᴀɴɴᴇʟ",
-                url=UPDATE_CHANNEL
+                url="https://t.me/+TBEZZOyLdPdjODg1",
             )
         ],
         [
