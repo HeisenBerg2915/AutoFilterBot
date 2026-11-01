@@ -47,6 +47,11 @@ UPDATE_GROUP = os.getenv("UPDATE_GROUP", "")
 # File Settings
 FILE_CHANNEL = int(os.getenv("FILE_CHANNEL", "0"))
 
+# NEW NOTIFICATION FILE CHANNEL
+NOTIFICATION_FILE_CHANNEL = int(
+    os.getenv("NOTIFICATION_FILE_CHANNEL", "0")
+)
+
 # Search Settings
 MAX_RESULTS = int(os.getenv("MAX_RESULTS", "10"))
 
