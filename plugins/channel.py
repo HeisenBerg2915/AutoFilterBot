@@ -88,7 +88,7 @@ async def notify_matching_users(client, uploaded_name):
             [
                 InlineKeyboardButton(
                     "⚡ SEARCH NOW",
-                    callback_data=f"searchnow:{request['_id']}"
+                    url="https://t.me/+Ik14BdOewjQzYjI1"
                 )
             ]
         ])
