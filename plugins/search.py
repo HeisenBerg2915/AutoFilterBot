@@ -21,7 +21,7 @@ from database import (
     groups_col
 )
 
-from config import ADMINS, UPDATE_GROUP
+from config import UPDATE_GROUP
 
 import imdbio
 
@@ -317,6 +317,15 @@ async def advantage_spell_chok(client, msg):
         "kind": "notify"
     })
 
+    # PRIVATE BOT DEEP LINK
+
+    bot_username = client.me.username
+
+    notify_link = (
+        f"https://t.me/{bot_username}"
+        f"?start=notify_{notify_session}"
+    )
+
     # GOOGLE + NOTIFY BUTTONS
 
     reqst_gle = quote_plus(mv_rqst)
@@ -325,7 +334,7 @@ async def advantage_spell_chok(client, msg):
         [
             InlineKeyboardButton(
                 "🔔 NOTIFY ME",
-                callback_data=f"notify:{notify_session}"
+                url=notify_link
             )
         ],
         [
@@ -625,97 +634,6 @@ async def pagination_callback(client, callback_query):
         session_id,
         page
     )
-
-
-# =========================
-# NOTIFY ME CALLBACK
-# =========================
-
-@Client.on_callback_query(
-    filters.regex(r"^notify:")
-)
-async def notify_me_callback(client, callback_query):
-
-    session_id = callback_query.data.split(":", 1)[1]
-
-    session = await search_sessions_col.find_one({
-        "_id": session_id,
-        "kind": "notify"
-    })
-
-    if not session:
-        await callback_query.answer(
-            "⌛ Request expired. Search again.",
-            show_alert=True
-        )
-        return
-
-    user = callback_query.from_user
-    movie_name = (session.get("query") or "").strip()
-
-    normalized = re.sub(
-        r"[^\w]+",
-        " ",
-        movie_name.casefold()
-    ).strip()
-
-    if not normalized:
-        await callback_query.answer(
-            "Movie name not found!",
-            show_alert=True
-        )
-        return
-
-    saved = await notify_requests_col.update_one(
-        {
-            "user_id": user.id,
-            "normalized_name": normalized
-        },
-        {
-            "$setOnInsert": {
-                "_id": uuid4().hex[:20],
-                "user_id": user.id,
-                "first_name": user.first_name or "Unknown",
-                "username": user.username,
-                "movie_name": movie_name,
-                "normalized_name": normalized,
-                "created_at": datetime.utcnow(),
-                "notified": False
-            }
-        },
-        upsert=True
-    )
-
-    if saved.upserted_id:
-
-        total = await notify_requests_col.count_documents({
-            "normalized_name": normalized
-        })
-
-        for admin_id in ADMINS:
-            try:
-                await client.send_message(
-                    admin_id,
-                    "🔔 **NEW MOVIE NOTIFY REQUEST**\n\n"
-                    f"🎬 Movie: **{movie_name}**\n"
-                    f"👤 User: {user.first_name or 'Unknown'}\n"
-                    f"🆔 User ID: `{user.id}`\n"
-                    f"📛 Username: @{user.username or 'None'}\n\n"
-                    f"📊 Total Requests: **{total}**"
-                )
-            except Exception as e:
-                print(f"Notify Admin Error ({admin_id}): {e}")
-
-    await callback_query.answer(
-        "✅ Notification request saved!"
-        if saved.upserted_id
-        else "✅ You already requested this movie!"
-    )
-
-    try:
-        await callback_query.message.edit_reply_markup(None)
-    except Exception:
-        pass
 
 
 # =========================
