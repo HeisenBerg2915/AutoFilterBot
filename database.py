@@ -24,7 +24,9 @@ groups_col = db["groups"]
 files_col = db["files"]
 stats_col = db["stats"]
 search_sessions_col = db["search_sessions"]
+
 missing_col = db["missing_movies"]
+notify_requests_col = db["notify_requests"]
 
 # DATABASE 2
 mongo_client2 = None
@@ -59,18 +61,17 @@ async def init_db():
     await reqone.create_index("user_id", unique=True)
     await reqtwo.create_index("user_id", unique=True)
 
+    await notify_requests_col.create_index(
+        [("user_id", 1), ("normalized_name", 1)],
+        unique=True
+    )
+
+    await notify_requests_col.create_index("normalized_name")
+
     await search_sessions_col.create_index(
         "created_at",
         expireAfterSeconds=7200
     )
-
-    await missing_col.create_index(
-        [("user_id", 1), ("movie", 1)],
-        unique=True
-    )
-
-    await missing_col.create_index("movie")
-    await missing_col.create_index("created_at")
 
     if files_col2 is not None:
         await files_col2.create_index("file_id")
