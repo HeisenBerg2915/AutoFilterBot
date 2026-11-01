@@ -1,5 +1,9 @@
 import asyncio
+import re
+
 from html import escape
+from datetime import datetime
+from uuid import uuid4
 
 from bson import ObjectId
 
@@ -13,12 +17,19 @@ from database import (
     files_col2,
     files_col3,
     reqone,
-    reqtwo
+    reqtwo,
+    notify_requests_col,
+    search_sessions_col
 )
 
 from tag_cleaner import clean_file_name
 
-from config import LOG_CHANNEL, UPDATE_CHANNEL, UPDATE_GROUP
+from config import (
+    LOG_CHANNEL,
+    UPDATE_CHANNEL,
+    UPDATE_GROUP,
+    ADMINS
+)
 
 
 # =========================
@@ -48,7 +59,6 @@ async def send_log(client, text):
         return
 
     if not log_chat_id:
-
         print("Log Channel Not Available!")
         return
 
@@ -387,7 +397,136 @@ async def start_command(client, message):
             )
         )
 
+    # =========================
+    # NOTIFY MOVIE DEEP LINK
+    # =========================
+
+    if len(message.command) > 1:
+
+        payload = message.command[1]
+
+        if payload.startswith("notify_"):
+
+            session_id = payload.replace(
+                "notify_", "", 1
+            )
+
+            session = await search_sessions_col.find_one({
+                "_id": session_id,
+                "kind": "notify"
+            })
+
+            if not session:
+
+                await message.reply_text(
+                    "⌛ This Movie Request Link has expired.\n\n"
+                    "Please search again!"
+                )
+
+                return
+
+            movie_name = (
+                session.get("query") or ""
+            ).strip()
+
+            normalized = re.sub(
+                r"[^\w]+",
+                " ",
+                movie_name.casefold()
+            ).strip()
+
+            if not normalized:
+
+                await message.reply_text(
+                    "❌ Invalid Movie Name!"
+                )
+
+                return
+
+            # SAVE NOTIFICATION REQUEST
+
+            saved = await notify_requests_col.update_one(
+                {
+                    "user_id": user_id,
+                    "normalized_name": normalized
+                },
+                {
+                    "$setOnInsert": {
+                        "_id": uuid4().hex[:20],
+                        "user_id": user_id,
+                        "first_name": user.first_name or "Unknown",
+                        "username": user.username,
+                        "movie_name": movie_name,
+                        "normalized_name": normalized,
+                        "created_at": datetime.utcnow(),
+                        "notified": False
+                    }
+                },
+                upsert=True
+            )
+
+            # NEW REQUEST
+
+            if saved.upserted_id:
+
+                total = await notify_requests_col.count_documents({
+                    "normalized_name": normalized
+                })
+
+                # ADMIN NOTIFICATION
+
+                for admin_id in ADMINS:
+
+                    try:
+
+                        await client.send_message(
+                            admin_id,
+                            (
+                                "🔔 **NEW MOVIE NOTIFY REQUEST**\n\n"
+                                f"🎬 Movie: **{movie_name}**\n"
+                                f"👤 User: **{user.first_name or 'Unknown'}**\n"
+                                f"🆔 User ID: `{user_id}`\n"
+                                f"📛 Username: @{user.username or 'None'}\n\n"
+                                f"📊 Total Requests: **{total}**"
+                            )
+                        )
+
+                    except Exception as e:
+
+                        print(
+                            f"Notify Admin Error ({admin_id}): {e}"
+                        )
+
+                await message.reply_text(
+                    (
+                        "🎬 **MOVIE NOTIFICATION**\n\n"
+                        f"🎥 Movie: **{movie_name}**\n\n"
+                        "✅ Your Movie Request has been received!\n\n"
+                        "📢 Movie Upload ചെയ്യുന്ന ഉടൻ "
+                        "നിങ്ങൾക്ക് ഇവിടെ Notification ലഭിക്കുന്നതാണ്.\n\n"
+                        "❤️ Thank you for using our Bot!"
+                    )
+                )
+
+            # ALREADY REQUESTED
+
+            else:
+
+                await message.reply_text(
+                    (
+                        "🎬 **MOVIE NOTIFICATION**\n\n"
+                        f"🎥 Movie: **{movie_name}**\n\n"
+                        "✅ You have already requested this Movie!\n\n"
+                        "Movie Upload ചെയ്യുന്ന ഉടൻ "
+                        "നിങ്ങൾക്ക് ഇവിടെ Notification ലഭിക്കുന്നതാണ്. ❤️"
+                    )
+                )
+
+            return
+
+    # =========================
     # FILE DEEP LINK
+    # =========================
 
     if len(message.command) > 1:
 
@@ -450,7 +589,9 @@ async def start_command(client, message):
 
                 return
 
+    # =========================
     # NORMAL START MESSAGE
+    # =========================
 
     text = (
         f"ʜᴀɪ 👋 {user.mention}!\n\n"
