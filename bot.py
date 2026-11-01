@@ -225,12 +225,18 @@ async def main():
             print("Loading Log Channel...")
 
             try:
+                target_id = int(LOG_CHANNEL)
 
-                log_chat = await app.get_chat(
-                    LOG_CHANNEL
-                )
+                # Search existing dialogs to populate peer cache
+                async for dialog in app.get_dialogs():
+                    if dialog.chat.id == target_id:
+                        app.log_channel_id = dialog.chat.id
+                        break
 
-                app.log_channel_id = log_chat.id
+                # Fallback
+                if app.log_channel_id is None:
+                    log_chat = await app.get_chat(target_id)
+                    app.log_channel_id = log_chat.id
 
                 print(
                     "Log Channel Loaded Successfully:",
