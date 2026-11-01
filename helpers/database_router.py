@@ -1,4 +1,4 @@
-from pymongo import ReturnDocument
+from pymongo import ReturnDocument, UpdateOne
 
 from database import (
     files_col,
@@ -143,3 +143,126 @@ async def save_file_to_databases(file_data, target="db1"):
     )
 
     return 1
+
+
+# =====================================
+# BULK FILE SAVE
+# =====================================
+
+async def save_files_to_databases(file_data_list, target="db1"):
+
+    target = target.lower()
+
+    databases = get_all_databases()
+
+    if not databases or not file_data_list:
+        return 0, len(file_data_list)
+
+    # Collect unique IDs
+    unique_ids = list({
+        item["file_unique_id"]
+        for item in file_data_list
+        if item.get("file_unique_id")
+    })
+
+    if not unique_ids:
+        return 0, len(file_data_list)
+
+    # Check duplicates in all databases
+    existing_ids = set()
+
+    for collection in databases.values():
+
+        cursor = collection.find(
+            {
+                "file_unique_id": {
+                    "$in": unique_ids
+                }
+            },
+            {
+                "file_unique_id": 1,
+                "_id": 0
+            }
+        )
+
+        async for document in cursor:
+
+            existing_ids.add(
+                document["file_unique_id"]
+            )
+
+    # Remove duplicates
+    new_files = []
+    seen_ids = set()
+
+    for item in file_data_list:
+
+        uid = item.get("file_unique_id")
+
+        if not uid:
+            continue
+
+        if uid in existing_ids or uid in seen_ids:
+            continue
+
+        seen_ids.add(uid)
+        new_files.append(item)
+
+    if not new_files:
+        return 0, len(file_data_list)
+
+    # Prepare database distribution
+    operations = {}
+
+    if target == "all":
+
+        for item in new_files:
+
+            collection = await get_next_round_robin_database()
+
+            if collection is None:
+                continue
+
+            operations.setdefault(
+                collection,
+                []
+            ).append(item)
+
+    else:
+
+        if target not in databases:
+            return 0, len(file_data_list)
+
+        operations[databases[target]] = new_files
+
+    # Bulk write
+    saved = 0
+
+    for collection, items in operations.items():
+
+        bulk_operations = [
+            UpdateOne(
+                {
+                    "file_unique_id": item["file_unique_id"]
+                },
+                {
+                    "$set": item
+                },
+                upsert=True
+            )
+            for item in items
+        ]
+
+        if bulk_operations:
+
+            result = await collection.bulk_write(
+                bulk_operations,
+                ordered=False
+            )
+
+            saved += (
+                result.upserted_count
+                + result.modified_count
+            )
+
+    return saved, len(file_data_list) - saved
