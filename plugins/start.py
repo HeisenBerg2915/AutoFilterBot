@@ -28,8 +28,11 @@ from config import (
     LOG_CHANNEL,
     UPDATE_CHANNEL,
     UPDATE_GROUP,
-    ADMINS
+    ADMINS,
+    BOT_TOKEN
 )
+
+import aiohttp
 
 
 # =========================
@@ -49,25 +52,37 @@ DATABASES = {
 
 async def send_log(client, text):
 
-    log_chat_id = getattr(
-        client,
-        "log_channel_id",
-        None
-    )
-
     if not LOG_CHANNEL:
-        return
-
-    if not log_chat_id:
-        print("Log Channel Not Available!")
         return
 
     try:
 
-        await client.send_message(
-            chat_id=log_chat_id,
-            text=text
+        url = (
+            f"https://api.telegram.org/"
+            f"bot{BOT_TOKEN}/sendMessage"
         )
+
+        payload = {
+            "chat_id": LOG_CHANNEL,
+            "text": text
+        }
+
+        async with aiohttp.ClientSession() as session:
+
+            async with session.post(
+                url,
+                json=payload
+            ) as response:
+
+                result = await response.json()
+
+                if not result.get("ok"):
+                    print(
+                        "Delivery Log Error:",
+                        result.get("description")
+                    )
+                else:
+                    print("Log Message Sent Successfully!")
 
     except Exception as e:
 
