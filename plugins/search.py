@@ -16,12 +16,15 @@ from database import (
     files_col3,
     stats_col,
     search_sessions_col,
-    missing_col
+    missing_col,
+    notify_requests_col,
+    groups_col
 )
 
 import imdbio
 
 from tag_cleaner import clean_file_name
+from config import ADMINS, UPDATE_GROUP
 
 PAGE_SIZE = 8
 
@@ -125,7 +128,6 @@ def get_file_buttons(
     navigation = []
 
     if page > 0:
-
         navigation.append(
             InlineKeyboardButton(
                 "⬅️ Previous",
@@ -134,7 +136,6 @@ def get_file_buttons(
         )
 
     if page < total_pages - 1:
-
         navigation.append(
             InlineKeyboardButton(
                 "Next ➡️",
@@ -202,7 +203,6 @@ async def show_page(
     for collection, _ in DATABASES:
 
         if collection is not None:
-
             total += await collection.count_documents(
                 search_filter
             )
@@ -308,7 +308,23 @@ async def advantage_spell_chok(client, msg):
 
     reqst_gle = quote_plus(mv_rqst)
 
+    notify_session = uuid4().hex[:12]
+
+    await search_sessions_col.insert_one({
+        "_id": notify_session,
+        "query": cleaned_query,
+        "chat_id": msg.chat.id,
+        "created_at": datetime.utcnow(),
+        "kind": "notify"
+    })
+
     google_button = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔔 NOTIFY ME",
+                callback_data=f"notify:{notify_session}"
+            )
+        ],
         [
             InlineKeyboardButton(
                 "🔎 ᴄʜᴇᴄᴋ sᴘᴇʟʟ (ɢᴏᴏɢʟᴇ) 🔎",
@@ -469,9 +485,7 @@ async def auto_filter(client, message):
                 search_filter
             )
 
-    # =========================
     # MISSING MOVIES + SPELL CHECK
-    # =========================
 
     if not total:
 
@@ -506,9 +520,7 @@ async def auto_filter(client, message):
 
         return
 
-    # =========================
     # UPDATE SEARCH STATS
-    # =========================
 
     await stats_col.update_one(
         {"_id": "bot_stats"},
@@ -516,9 +528,7 @@ async def auto_filter(client, message):
         upsert=True
     )
 
-    # =========================
     # CREATE SEARCH SESSION
-    # =========================
 
     session_id = uuid4().hex
 
@@ -612,3 +622,292 @@ async def pagination_callback(client, callback_query):
         session_id,
         page
     )
+
+
+# =========================
+# NOTIFY ME REQUEST
+# =========================
+
+@Client.on_callback_query(filters.regex(r"^notify:"))
+async def notify_me_callback(client, callback_query):
+
+    session_id = callback_query.data.split(":", 1)[1]
+
+    session = await search_sessions_col.find_one({
+        "_id": session_id,
+        "kind": "notify"
+    })
+
+    if not session:
+
+        await callback_query.answer(
+            "⌛ This request has expired. Search again.",
+            show_alert=True
+        )
+
+        return
+
+    user = callback_query.from_user
+
+    movie_name = (session.get("query") or "").strip()
+
+    normalized = re.sub(
+        r"[^\w]+",
+        " ",
+        movie_name.casefold()
+    ).strip()
+
+    if not normalized:
+
+        await callback_query.answer(
+            "Movie name not found!",
+            show_alert=True
+        )
+
+        return
+
+    saved = await notify_requests_col.update_one(
+        {
+            "user_id": user.id,
+            "normalized_name": normalized
+        },
+        {
+            "$setOnInsert": {
+                "_id": uuid4().hex[:20],
+                "user_id": user.id,
+                "first_name": user.first_name or "Unknown",
+                "username": user.username,
+                "movie_name": movie_name,
+                "normalized_name": normalized,
+                "created_at": datetime.utcnow(),
+                "notified": False
+            }
+        },
+        upsert=True
+    )
+
+    if saved.upserted_id:
+
+        total = await notify_requests_col.count_documents({
+            "normalized_name": normalized
+        })
+
+        for admin_id in ADMINS:
+
+            try:
+
+                await client.send_message(
+                    admin_id,
+                    "🔔 **NEW MOVIE NOTIFY REQUEST**\n\n"
+                    f"🎬 Movie: **{movie_name}**\n"
+                    f"👤 User: {user.first_name or 'Unknown'}\n"
+                    f"🆔 User ID: `{user.id}`\n"
+                    f"📛 Username: @{user.username or 'None'}\n\n"
+                    f"📊 Total requests for this movie: **{total}**"
+                )
+
+            except Exception as e:
+
+                print(
+                    f"Notify Admin Message Error ({admin_id}): {e}"
+                )
+
+    await callback_query.answer(
+        "✅ Notification request saved!"
+        if saved.upserted_id
+        else "✅ You already requested this movie!"
+    )
+
+    try:
+        await callback_query.message.edit_reply_markup(None)
+    except Exception:
+        pass
+
+
+# =========================
+# TEMPORARY SEARCH NOW RESULT
+# =========================
+
+async def _delete_temporary_result(client, chat_id, message_id):
+
+    await asyncio.sleep(600)
+
+    try:
+        await client.delete_messages(chat_id, message_id)
+
+    except Exception as e:
+
+        print(f"Temporary Search Result Delete Error: {e}")
+
+
+def _message_link(chat, message_id):
+
+    if getattr(chat, "username", None):
+        return f"https://t.me/{chat.username}/{message_id}"
+
+    internal_id = str(chat.id)
+
+    if internal_id.startswith("-100"):
+        return f"https://t.me/c/{internal_id[4:]}/{message_id}"
+
+    return None
+
+
+@Client.on_callback_query(filters.regex(r"^searchnow:"))
+async def search_now_callback(client, callback_query):
+
+    request_id = callback_query.data.split(":", 1)[1]
+
+    request = await notify_requests_col.find_one({
+        "_id": request_id
+    })
+
+    if not request or request.get("user_id") != callback_query.from_user.id:
+
+        await callback_query.answer(
+            "Request not found!",
+            show_alert=True
+        )
+
+        return
+
+    query = request.get("movie_name", "").strip()
+
+    search_filter = build_search_filter(query)
+
+    if not search_filter:
+
+        await callback_query.answer(
+            "Invalid movie name!",
+            show_alert=True
+        )
+
+        return
+
+    total = sum([
+        await col.count_documents(search_filter)
+        for col, _ in DATABASES
+        if col is not None
+    ])
+
+    if not total:
+
+        await callback_query.answer(
+            "Movie result not found yet. Please try later.",
+            show_alert=True
+        )
+
+        return
+
+    target = None
+
+    if UPDATE_GROUP:
+
+        try:
+            target = await client.get_chat(UPDATE_GROUP)
+
+        except Exception as e:
+            print(f"Configured Search Group Error: {e}")
+
+    if target is None:
+
+        group = await groups_col.find_one({})
+
+        if group:
+
+            try:
+
+                target = await client.get_chat(
+                    group.get("username") or group.get("id")
+                )
+
+            except Exception as e:
+                print(f"Saved Search Group Error: {e}")
+
+    if target is None:
+
+        await callback_query.answer(
+            "Search group is not configured. Set UPDATE_GROUP.",
+            show_alert=True
+        )
+
+        return
+
+    session_id = uuid4().hex
+
+    await search_sessions_col.insert_one({
+        "_id": session_id,
+        "query": query,
+        "chat_id": target.id,
+        "created_at": datetime.utcnow(),
+        "temporary": True
+    })
+
+    results = await get_search_results(
+        search_filter,
+        PAGE_SIZE
+    )
+
+    total_pages = max(
+        1,
+        (total + PAGE_SIZE - 1) // PAGE_SIZE
+    )
+
+    keyboard = get_file_buttons(
+        client,
+        results[:PAGE_SIZE],
+        session_id,
+        0,
+        total_pages
+    )
+
+    result_message = await client.send_message(
+        target.id,
+        f"🔎 Search Results: {query}\n\n"
+        f"📁 Found: {total} Files\n"
+        f"📄 Page: 1/{total_pages}",
+        reply_markup=keyboard
+    )
+
+    asyncio.create_task(
+        _delete_temporary_result(
+            client,
+            target.id,
+            result_message.id
+        )
+    )
+
+    link = _message_link(
+        target,
+        result_message.id
+    )
+
+    if link:
+
+        await callback_query.answer(
+            "✅ Search result posted in the group!",
+            url=link
+        )
+
+    else:
+
+        await callback_query.answer(
+            "✅ Result posted. Open the group to view it."
+        )
+
+        try:
+
+            await callback_query.message.reply_text(
+                "⚡ Your temporary search result is ready in the group.",
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton(
+                            "⚡ OPEN GROUP RESULT",
+                            url=target.invite_link or UPDATE_GROUP
+                        )
+                    ]
+                ])
+            )
+
+        except Exception:
+            pass
