@@ -11,7 +11,7 @@ from helpers.episode_filter import is_tv_episode
 
 from helpers.database_router import (
     get_target_collections,
-    save_file_to_databases
+    save_files_to_databases
 )
 
 
@@ -21,6 +21,10 @@ index_jobs = {}
 
 # Prevent multiple indexing processes
 indexing_lock = asyncio.Lock()
+
+# Bulk save settings
+BATCH_SIZE = 100
+PROGRESS_INTERVAL = 200
 
 MEDIA_TYPES = (
     "document",
@@ -297,14 +301,18 @@ async def run_indexing(
     status_message,
     target
 ):
+
     if indexing_lock.locked():
+
         await status_message.edit_text(
             "⚠️ മറ്റൊരു Indexing ഇപ്പോൾ പ്രവർത്തിക്കുന്നുണ്ട്. "
             "അത് പൂർത്തിയായ ശേഷം വീണ്ടും ശ്രമിക്കുക."
         )
+
         return
 
     async with indexing_lock:
+
         await _run_indexing(
             client,
             request_id,
@@ -319,7 +327,9 @@ async def _run_indexing(
     status_message,
     target
 ):
+
     request = index_requests.get(request_id)
+
     if not request:
 
         await status_message.edit_text(
@@ -347,6 +357,8 @@ async def _run_indexing(
     skipped = 0
     errors = 0
 
+    batch = []
+
     last_message_id = request["last_message_id"]
     source_chat_id = request["chat_id"]
 
@@ -361,6 +373,34 @@ async def _run_indexing(
 
         reply_markup=cancel_keyboard(request_id),
     )
+
+    async def flush_batch():
+
+        nonlocal indexed, duplicates, errors, batch
+
+        if not batch:
+            return
+
+        current_batch = batch
+        batch = []
+
+        try:
+
+            saved_count, skipped_count = await save_files_to_databases(
+                current_batch,
+                target=target
+            )
+
+            indexed += saved_count
+            duplicates += skipped_count
+
+        except Exception as save_error:
+
+            errors += len(current_batch)
+
+            print(
+                f"Bulk index save error: {save_error}"
+            )
 
     try:
 
@@ -419,32 +459,18 @@ async def _run_indexing(
                 "date": msg.date or datetime.utcnow(),
             }
 
-            try:
+            batch.append(file_data)
 
-                saved_count = await save_file_to_databases(
-                    file_data,
-                    target=target
-                )
+            # Save every 100 files in bulk.
+            if len(batch) >= BATCH_SIZE:
 
-                if saved_count > 0:
+                await flush_batch()
 
-                    indexed += 1
+            # Live progress update every 200 messages.
+            if checked % PROGRESS_INTERVAL == 0:
 
-                else:
-
-                    duplicates += 1
-
-            except Exception as save_error:
-
-                errors += 1
-
-                print(
-                    f"Index save error for message {msg.id}: {save_error}"
-                )
-
-            # Live progress update
-
-            if checked % 200 == 0:
+                # Save pending files before updating progress.
+                await flush_batch()
 
                 try:
 
@@ -463,7 +489,13 @@ async def _run_indexing(
                 except Exception:
                     pass
 
+        # Save remaining files after loop or cancellation.
+        await flush_batch()
+
     except Exception as error:
+
+        # Try to save pending files before reporting failure.
+        await flush_batch()
 
         request["status"] = "failed"
 
@@ -611,6 +643,15 @@ async def indexing_callbacks(client, query):
     # Cancel indexing
 
     if action == "cancel":
+
+        if request.get("status") != "running":
+
+            await query.answer(
+                "No active indexing job.",
+                show_alert=True
+            )
+
+            return
 
         request["cancel"] = True
 
