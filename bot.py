@@ -215,46 +215,6 @@ async def main():
         bot_started = True
 
         # =========================
-        # LOAD LOG CHANNEL
-        # =========================
-
-        app.log_channel_id = None
-
-        if LOG_CHANNEL:
-
-            print("Loading Log Channel...")
-
-            try:
-                target_id = int(LOG_CHANNEL)
-
-                # Search existing dialogs to populate peer cache
-                async for dialog in app.get_dialogs():
-                    if dialog.chat.id == target_id:
-                        app.log_channel_id = dialog.chat.id
-                        break
-
-                # Fallback
-                if app.log_channel_id is None:
-                    log_chat = await app.get_chat(target_id)
-                    app.log_channel_id = log_chat.id
-
-                print(
-                    "Log Channel Loaded Successfully:",
-                    app.log_channel_id
-                )
-
-            except Exception as e:
-
-                print(
-                    f"Log Channel Loading Error: "
-                    f"{type(e).__name__}: {e}"
-                )
-
-        else:
-
-            print("LOG_CHANNEL Not Configured!")
-
-        # =========================
         # BOT INFORMATION
         # =========================
 
