@@ -1,7 +1,6 @@
 from pyrogram import Client, filters
-
 from config import FILE_CHANNEL
-from database import missing_col
+from database import notify_requests_col
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
 import re
@@ -17,17 +16,11 @@ async def save_channel_files(client, message):
         return
 
     media_types = [
-        "document",
-        "video",
-        "audio",
-        "photo",
-        "animation",
-        "voice",
-        "video_note"
+        "document", "video", "audio", "photo",
+        "animation", "voice", "video_note"
     ]
 
     for media_type in media_types:
-
         media = getattr(message, media_type, None)
 
         if not media:
@@ -72,41 +65,35 @@ async def save_channel_files(client, message):
 async def notify_matching_users(client, uploaded_name):
 
     uploaded_norm = re.sub(
-        r"[^\w]+",
-        " ",
-        uploaded_name.casefold()
+        r"[^\w]+", " ", uploaded_name.casefold()
     ).strip()
 
     if not uploaded_norm:
         return
 
-    requests = await missing_col.find(
+    requests = await notify_requests_col.find(
         {"notified": False}
     ).to_list(length=None)
 
     for request in requests:
-
         wanted = request.get("normalized_name", "")
 
         if len(wanted) < 3:
             continue
 
-        if not (
-            wanted in uploaded_norm
-            or uploaded_norm in wanted
-        ):
+        if wanted not in uploaded_norm and uploaded_norm not in wanted:
             continue
 
-        try:
-            keyboard = InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton(
-                        "⚡ SEARCH NOW",
-                        callback_data=f"searchnow:{request['_id']}"
-                    )
-                ]
-            ])
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "⚡ SEARCH NOW",
+                    callback_data=f"searchnow:{request['_id']}"
+                )
+            ]
+        ])
 
+        try:
             await client.send_message(
                 request["user_id"],
                 "🎉 MOVIE NOW AVAILABLE!\n\n"
@@ -115,7 +102,7 @@ async def notify_matching_users(client, uploaded_name):
                 reply_markup=keyboard
             )
 
-            await missing_col.update_one(
+            await notify_requests_col.update_one(
                 {"_id": request["_id"]},
                 {
                     "$set": {
@@ -127,7 +114,4 @@ async def notify_matching_users(client, uploaded_name):
             )
 
         except Exception as e:
-            print(
-                f"Notify User Error "
-                f"({request.get('user_id')}): {e}"
-            )
+            print(f"Notify User Error: {e}")
