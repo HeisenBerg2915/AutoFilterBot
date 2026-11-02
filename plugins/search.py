@@ -594,13 +594,16 @@ async def auto_filter(client, message):
     )
 
     results = await get_search_results(
-        search_filter,
+        search_filter,      
         query
     )
+    
+    # FIRST PAGE - ONLY 8 FILES
+    first_page_results = results[:PAGE_SIZE]
 
     keyboard = get_file_buttons(
         client,
-        results,
+        first_page_results,
         session_id,
         0,
         total_pages
