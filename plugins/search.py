@@ -60,20 +60,13 @@ def build_search_filter(query):
     if not words:
         return None
 
-    # SINGLE WORD - EXACT FILENAME MATCH
-
     if len(words) == 1:
-
         pattern = (
-            r"^\s*"
-            + re.escape(query)
-            + r"\s*(\.[^.]*)?\s*$"
+            r"(^|[\W_]+)"
+            + re.escape(words[0])
+            + r"($|[\W_]+)"
         )
-
-    # MULTI WORD - PREFIX MATCH
-
     else:
-
         pattern = (
             r"^\s*"
             + r"[\W_]+".join(
@@ -162,7 +155,7 @@ def get_file_buttons(
 # GET SEARCH RESULTS
 # =========================
 
-async def get_search_results(search_filter, limit):
+async def get_search_results(search_filter, query):
 
     all_results = []
 
@@ -173,22 +166,60 @@ async def get_search_results(search_filter, limit):
 
         results = await collection.find(
             search_filter
-        ).sort(
-            "date", -1
-        ).limit(
-            limit
-        ).to_list(length=limit)
+        ).to_list(length=None)
 
         for file in results:
             all_results.append((file, db_number))
 
-    all_results.sort(
-        key=lambda item: item[0].get("date") or datetime.min,
-        reverse=True
-    )
+    query = query.strip().casefold()
+
+    def sort_key(item):
+
+        file = item[0]
+
+        file_name = (
+            file.get("file_name")
+            or file.get("caption")
+            or ""
+        ).strip()
+
+        # Remove file extension
+        name = re.sub(
+            r"\.[^.]+$",
+            "",
+            file_name
+        ).strip()
+
+        # Master at filename beginning
+        if re.match(
+            r"^" + re.escape(query) + r"($|[\W_])",
+            name,
+            flags=re.IGNORECASE
+        ):
+            priority = 0
+
+        # Master anywhere else
+        else:
+            priority = 1
+
+        file_date = file.get("date")
+
+        if file_date:
+            try:
+                date_value = file_date.timestamp()
+            except (AttributeError, ValueError, OSError):
+                date_value = 0
+        else:
+            date_value = 0
+
+        return (
+            priority,
+            -date_value
+        )
+
+    all_results.sort(key=sort_key)
 
     return all_results
-
 
 # =========================
 # SHOW SEARCH PAGE
@@ -226,11 +257,9 @@ async def show_page(
         min(page, total_pages - 1)
     )
 
-    limit = (page + 1) * PAGE_SIZE
-
     all_results = await get_search_results(
         search_filter,
-        limit
+        query
     )
 
     results = all_results[
@@ -566,10 +595,8 @@ async def auto_filter(client, message):
 
     results = await get_search_results(
         search_filter,
-        PAGE_SIZE
+        query
     )
-
-    results = results[:PAGE_SIZE]
 
     keyboard = get_file_buttons(
         client,
