@@ -51,6 +51,12 @@ if MONGO_URL3:
 
 async def init_db():
 
+    try:
+        server_info = await mongo_client.server_info()
+        print(f"MongoDB Server Version: {server_info.get('version')}")
+    except Exception as e:
+        print(f"MongoDB Version Check Error: {e}")
+
     await users_col.create_index("id", unique=True)
     await groups_col.create_index("id", unique=True)
 
