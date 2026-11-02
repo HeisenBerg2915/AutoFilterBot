@@ -155,16 +155,80 @@ def get_file_buttons(
 # GET SEARCH RESULTS
 # =========================
 
-async def get_search_results(search_filter, query):
+async def get_search_results(search_filter, query, page=0):
+
+    query = query.strip()
+    page = max(0, int(page))
+
+    limit = (page + 1) * PAGE_SIZE
+
+    prefix_pattern = (
+        r"^" + re.escape(query) + r"($|[\W_])"
+    )
+
+    name_expression = {
+        "$cond": [
+            {
+                "$ne": [
+                    {"$ifNull": ["$file_name", ""]},
+                    ""
+                ]
+            },
+            "$file_name",
+            "$caption"
+        ]
+    }
 
     async def fetch_database(collection, db_number):
 
         if collection is None:
             return []
 
-        results = await collection.find(
-            search_filter
-        ).to_list(length=None)
+        pipeline = [
+            {
+                "$match": search_filter
+            },
+            {
+                "$addFields": {
+                    "_search_priority": {
+                        "$cond": [
+                            {
+                                "$regexMatch": {
+                                    "input": {
+                                        "$ifNull": [
+                                            name_expression,
+                                            ""
+                                        ]
+                                    },
+                                    "regex": prefix_pattern,
+                                    "options": "i"
+                                }
+                            },
+                            0,
+                            1
+                        ]
+                    }
+                }
+            },
+            {
+                "$sort": {
+                    "_search_priority": 1,
+                    "date": -1
+                }
+            },
+            {
+                "$limit": limit
+            },
+            {
+                "$project": {
+                    "_search_priority": 0
+                }
+            }
+        ]
+
+        results = await collection.aggregate(
+            pipeline
+        ).to_list(length=limit)
 
         return [
             (file, db_number)
@@ -184,7 +248,7 @@ async def get_search_results(search_filter, query):
         for item in results
     ]
 
-    query = query.strip().casefold()
+    query_lower = query.casefold()
 
     def sort_key(item):
 
@@ -201,7 +265,7 @@ async def get_search_results(search_filter, query):
         ).strip()
 
         if re.match(
-            r"^" + re.escape(query) + r"($|[\W_])",
+            r"^" + re.escape(query_lower) + r"($|[\W_])",
             name,
             flags=re.IGNORECASE
         ):
@@ -223,7 +287,10 @@ async def get_search_results(search_filter, query):
 
     all_results.sort(key=sort_key)
 
-    return all_results
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+
+    return all_results[start:end]
 
 
 # =========================
@@ -282,14 +349,11 @@ async def show_page(
         min(page, total_pages - 1)
     )
 
-    all_results = await get_search_results(
+    results = await get_search_results(
         search_filter,
-        query
+        query,
+        page
     )
-
-    results = all_results[
-        page * PAGE_SIZE:(page + 1) * PAGE_SIZE
-    ]
 
     keyboard = get_file_buttons(
         client,
