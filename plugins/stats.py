@@ -98,40 +98,32 @@ async def stats_callback(client, query):
         return "Connected" if data["connected"] else "Not Connected"
 
     text = (
-        "📊 **BOT STATISTICS**\n\n"
+        "📊 **ʙᴏᴛ sᴛᴀᴛs**\n\n"
 
-        f"📁 **Total Files From All Databases:** "
-        f"`{total_files:,}`\n\n"
+        f"📁 ғɪʟᴇs: `{total_files:,}`\n"
+        f"👤 ᴜsᴇʀs: `{total_users:,}` | "
+        f"👥 ᴄʜᴀᴛs: `{total_groups:,}`\n"
+        f"🔍 sᴇᴀʀᴄʜᴇs: `{total_searches:,}`\n\n"
 
-        "👥 **BOT USERS AND CHATS COUNT**\n"
-        f"👤 Total Users: `{total_users:,}`\n"
-        f"👨‍👩‍👧 Total Chats: `{total_groups:,}`\n"
-        f"🔍 Total Searches: `{total_searches:,}`\n\n"
+        "🗄️ **DB1**\n"
+        f"📁 {db1_stats['files']:,}\n"
+        f"💾 {db1_stats['used']} MB | "
+        f"🆓 {db1_stats['free']} MB\n"
+        f"🟢 {status_text(db1_stats)}\n\n"
 
-        "━━━━━━━━━━━━━━━━━━\n"
-        " **1 DATABASE STATISTICS**\n"
-        f"📁 Total Files: `{db1_stats['files']:,}`\n"
-        f"💾 Used Storage: `{db1_stats['used']} MB`\n"
-        f"🆓 Free Storage: `{db1_stats['free']} MB`\n"
-        f"🔌 Status: `{status_text(db1_stats)}`\n\n"
+        "🗄️ **DB2**\n"
+        f"📁 {db2_stats['files']:,}\n"
+        f"💾 {db2_stats['used']} MB | "
+        f"🆓 {db2_stats['free']} MB\n"
+        f"🟢 {status_text(db2_stats)}\n\n"
 
-        "━━━━━━━━━━━━━━━━━━\n"
-        " **2 DATABASE STATISTICS**\n"
-        f"📁 Total Files: `{db2_stats['files']:,}`\n"
-        f"💾 Used Storage: `{db2_stats['used']} MB`\n"
-        f"🆓 Free Storage: `{db2_stats['free']} MB`\n"
-        f"🔌 Status: `{status_text(db2_stats)}`\n\n"
+        "🗄️ **DB3**\n"
+        f"📁 {db3_stats['files']:,}\n"
+        f"💾 {db3_stats['used']} MB | "
+        f"🆓 {db3_stats['free']} MB\n"
+        f"🟢 {status_text(db3_stats)}\n\n"
 
-        "━━━━━━━━━━━━━━━━━━\n"
-        " **3 DATABASE STATISTICS**\n"
-        f"📁 Total Files: `{db3_stats['files']:,}`\n"
-        f"💾 Used Storage: `{db3_stats['used']} MB`\n"
-        f"🆓 Free Storage: `{db3_stats['free']} MB`\n"
-        f"🔌 Status: `{status_text(db3_stats)}`\n\n"
-
-        "━━━━━━━━━━━━━━━━━━\n"
-        "💾 **Database:** MongoDB\n"
-        "🤖 **Bot Status:** Running"
+        "💾 ᴍᴏɴɢᴏᴅʙ | 🤖 ʀᴜɴɴɪɴɢ"
     )
 
     buttons = InlineKeyboardMarkup([
