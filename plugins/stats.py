@@ -129,13 +129,13 @@ async def stats_callback(client, query):
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "🔄 Refresh",
+                "ʀᴇғʀᴇsʜ",
                 callback_data="stats"
             )
         ],
         [
             InlineKeyboardButton(
-                "🔙 Back",
+                "ʙᴀᴄᴋ",
                 callback_data="back_home"
             )
         ]
