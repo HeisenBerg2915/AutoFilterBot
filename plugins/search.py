@@ -46,6 +46,11 @@ DATABASES = [
 
 def build_search_filter(query):
 
+    query = query.strip()
+
+    if not query:
+        return None
+
     words = re.findall(
         r"[^\W_]+",
         query,
@@ -55,13 +60,27 @@ def build_search_filter(query):
     if not words:
         return None
 
-    pattern = (
-        r"^\s*"
-        + r"[\W_]+".join(
-            re.escape(word) for word in words
+    # SINGLE WORD - EXACT FILENAME MATCH
+
+    if len(words) == 1:
+
+        pattern = (
+            r"^\s*"
+            + re.escape(query)
+            + r"\s*(\.[^.]*)?\s*$"
         )
-        + r"($|[\W_])"
-    )
+
+    # MULTI WORD - PREFIX MATCH
+
+    else:
+
+        pattern = (
+            r"^\s*"
+            + r"[\W_]+".join(
+                re.escape(word) for word in words
+            )
+            + r"($|[\W_])"
+        )
 
     return {
         "file_name": {
