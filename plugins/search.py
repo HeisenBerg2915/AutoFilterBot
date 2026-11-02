@@ -23,7 +23,7 @@ import imdbio
 
 from tag_cleaner import clean_file_name
 
-PAGE_SIZE = 8
+PAGE_SIZE = 10
 
 # നിങ്ങളുടെ ഗ്രൂപ്പിന്റെ Invite Link
 SEARCH_GROUP_LINK = "https://t.me/+Ik14BdOewjQzYjI1"
