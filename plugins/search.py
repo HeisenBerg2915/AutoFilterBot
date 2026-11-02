@@ -56,7 +56,7 @@ def build_search_filter(query):
         return None
 
     pattern = (
-        r"(^|[\W_])"
+        r"^\s*"
         + r"[\W_]+".join(
             re.escape(word) for word in words
         )
@@ -64,20 +64,10 @@ def build_search_filter(query):
     )
 
     return {
-        "$or": [
-            {
-                "file_name": {
-                    "$regex": pattern,
-                    "$options": "i"
-                }
-            },
-            {
-                "caption": {
-                    "$regex": pattern,
-                    "$options": "i"
-                }
-            }
-        ]
+        "file_name": {
+            "$regex": pattern,
+            "$options": "i"
+        }
     }
 
 
