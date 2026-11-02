@@ -615,8 +615,9 @@ async def start_command(client, message):
         "ᴘᴏᴡᴇʀᴇᴅ ʙʏ : ⟬ ᴛᴇᴀᴍ ғʟɪᴍ ᴍᴀxx ⟭"
     )
 
-    await message.reply_text(
-        text,
+    await message.reply_photo(
+        photo="https://h.uguu.se/cRtGvRMM.jpg",
+        caption=text,
         reply_markup=welcome_buttons(client)
     )
 
