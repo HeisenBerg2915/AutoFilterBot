@@ -157,19 +157,32 @@ def get_file_buttons(
 
 async def get_search_results(search_filter, query):
 
-    all_results = []
-
-    for collection, db_number in DATABASES:
+    async def fetch_database(collection, db_number):
 
         if collection is None:
-            continue
+            return []
 
         results = await collection.find(
             search_filter
         ).to_list(length=None)
 
-        for file in results:
-            all_results.append((file, db_number))
+        return [
+            (file, db_number)
+            for file in results
+        ]
+
+    tasks = [
+        fetch_database(collection, db_number)
+        for collection, db_number in DATABASES
+    ]
+
+    database_results = await asyncio.gather(*tasks)
+
+    all_results = [
+        item
+        for results in database_results
+        for item in results
+    ]
 
     query = query.strip().casefold()
 
@@ -178,48 +191,65 @@ async def get_search_results(search_filter, query):
         file = item[0]
 
         file_name = (
-            file.get("file_name")
-            or file.get("caption")
-            or ""
+            file.get("file_name") or file.get("caption") or ""
         ).strip()
 
-        # Remove file extension
         name = re.sub(
             r"\.[^.]+$",
             "",
             file_name
         ).strip()
 
-        # Master at filename beginning
         if re.match(
             r"^" + re.escape(query) + r"($|[\W_])",
             name,
             flags=re.IGNORECASE
         ):
             priority = 0
-
-        # Master anywhere else
         else:
             priority = 1
 
         file_date = file.get("date")
 
-        if file_date:
-            try:
-                date_value = file_date.timestamp()
-            except (AttributeError, ValueError, OSError):
-                date_value = 0
-        else:
+        try:
+            date_value = (
+                file_date.timestamp()
+                if file_date else 0
+            )
+        except (AttributeError, ValueError, OSError):
             date_value = 0
 
-        return (
-            priority,
-            -date_value
-        )
+        return (priority, -date_value)
 
     all_results.sort(key=sort_key)
 
     return all_results
+
+
+# =========================
+# COUNT SEARCH RESULTS
+# =========================
+
+async def count_search_results(search_filter):
+
+    async def count_database(collection):
+
+        if collection is None:
+            return 0
+
+        return await collection.count_documents(
+            search_filter
+        )
+
+    tasks = [
+        count_database(collection)
+        for collection, db_number in DATABASES
+    ]
+
+    counts = await asyncio.gather(*tasks)
+
+    return sum(counts)
+
 
 # =========================
 # SHOW SEARCH PAGE
@@ -238,14 +268,9 @@ async def show_page(
     if not search_filter:
         return
 
-    total = 0
+    # PARALLEL DATABASE COUNT
 
-    for collection, _ in DATABASES:
-
-        if collection is not None:
-            total += await collection.count_documents(
-                search_filter
-            )
+    total = await count_search_results(search_filter)
 
     total_pages = max(
         1,
@@ -524,15 +549,9 @@ async def auto_filter(client, message):
     if not search_filter:
         return
 
-    total = 0
+    # PARALLEL DATABASE COUNT
 
-    for collection, _ in DATABASES:
-
-        if collection is not None:
-
-            total += await collection.count_documents(
-                search_filter
-            )
+    total = await count_search_results(search_filter)
 
     # MISSING MOVIES + SPELL CHECK
 
@@ -594,11 +613,12 @@ async def auto_filter(client, message):
     )
 
     results = await get_search_results(
-        search_filter,      
+        search_filter,
         query
     )
-    
+
     # FIRST PAGE - ONLY 8 FILES
+
     first_page_results = results[:PAGE_SIZE]
 
     keyboard = get_file_buttons(
