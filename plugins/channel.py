@@ -52,9 +52,11 @@ async def save_channel_files(client, message):
 
         if saved_count:
             print(f"File Saved: {file_name or media_type}")
+
+            # Notify Me Caption Matching Only
             await notify_matching_users(
                 client,
-                file_name or message.caption or ""
+                message.caption or ""
             )
         else:
             print("File Save Failed: No database available")
@@ -62,10 +64,16 @@ async def save_channel_files(client, message):
         break
 
 
-async def notify_matching_users(client, uploaded_name):
+async def notify_matching_users(client, uploaded_caption):
+
+    # Caption Matching Only
+    if not uploaded_caption:
+        return
 
     uploaded_norm = re.sub(
-        r"[^\w]+", " ", uploaded_name.casefold()
+        r"[^\w]+",
+        " ",
+        uploaded_caption.casefold()
     ).strip()
 
     if not uploaded_norm:
@@ -76,12 +84,22 @@ async def notify_matching_users(client, uploaded_name):
     ).to_list(length=None)
 
     for request in requests:
+
         wanted = request.get("normalized_name", "")
 
         if len(wanted) < 3:
             continue
 
-        if wanted not in uploaded_norm and uploaded_norm not in wanted:
+        wanted_norm = re.sub(
+            r"[^\w]+",
+            " ",
+            wanted.casefold()
+        ).strip()
+
+        if (
+            wanted_norm not in uploaded_norm
+            and uploaded_norm not in wanted_norm
+        ):
             continue
 
         keyboard = InlineKeyboardMarkup([
@@ -97,7 +115,7 @@ async def notify_matching_users(client, uploaded_name):
             await client.send_message(
                 request["user_id"],
                 "🎉 MOVIE NOW AVAILABLE!\n\n"
-                f"🎬 {request.get('movie_name', uploaded_name)}\n\n"
+                f"🎬 {request.get('movie_name', uploaded_caption)}\n\n"
                 "നിങ്ങൾ ആവശ്യപ്പെട്ട Movie ഇപ്പോൾ ലഭ്യമാണ്!",
                 reply_markup=keyboard
             )
@@ -108,7 +126,7 @@ async def notify_matching_users(client, uploaded_name):
                     "$set": {
                         "notified": True,
                         "notified_at": datetime.utcnow(),
-                        "uploaded_name": uploaded_name
+                        "uploaded_name": uploaded_caption
                     }
                 }
             )
