@@ -132,7 +132,7 @@ def join_request_buttons(client, payload):
 
         buttons.append([
             InlineKeyboardButton(
-                "📢 JOIN CHANNEL 1",
+                "ᴊᴏɪɴ ᴛᴏ ᴄʜᴀɴɴᴇʟ ᴏɴᴇ",
                 url=link1
             )
         ])
@@ -141,14 +141,14 @@ def join_request_buttons(client, payload):
 
         buttons.append([
             InlineKeyboardButton(
-                "📢 JOIN CHANNEL 2",
+                "ᴊᴏɪɴ ᴛᴏ ᴄʜᴀɴɴᴇʟ ᴛᴡᴏ",
                 url=link2
             )
         ])
 
     buttons.append([
         InlineKeyboardButton(
-            "🔄 TRY AGAIN",
+            "ᴛʀʏ ᴀɢᴀɪɴ",
             callback_data=f"try:{payload}"
         )
     ])
@@ -315,8 +315,8 @@ async def send_file_to_user(client, user, file):
             chat_id=user_id,
             text=(
                 "‼️ ɪᴍᴘᴏʀᴛᴀɴᴛ ‼️\n\n"
-                "ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ɪɴ 2 mins\n\n"
-                "ᴘʟᴇᴀsᴇ ғᴏʀᴡᴀʀᴅ ᴛʜɪs ᴍᴇssᴀɢᴇ "
+                "ᴛʜɪs ғɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴅᴇʟᴇᴛᴇᴅ ᴀғᴛᴇʀ 2 ᴍɪɴᴜᴛᴇs.\n\n"
+                "ᴘʟᴇᴀsᴇ ғᴏʀᴡᴀʀᴅ ᴛʜɪs ғɪʟᴇ "
                 "ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs."
             )
         )
@@ -569,10 +569,10 @@ async def start_command(client, message):
 
                     await message.reply_text(
                         (
-                            "⚠️ JOIN REQUEST REQUIRED\n\n"
-                            "Please send Join Requests to both channels.\n\n"
-                            "After sending both requests, "
-                            "press TRY AGAIN."
+                            "ᴊᴏɪɴ ʀᴇϙᴜᴇsᴛ ʀᴇϙᴜɪʀᴇsᴛ\n\n"
+                            "ᴘʟᴇᴀsᴇ sᴇɴᴅ ᴊᴏɪɴ ʀᴇϙᴜᴇsᴛs ᴛᴏ ʙᴏᴛʜ ᴄʜᴀɴɴᴇʟs.\n\n"
+                            "ᴀғᴛᴇʀ sᴇɴᴅɪɴɢ ʙᴏᴛʜ ʀᴇϙᴜᴇsᴛs, "
+                            "ᴘʀᴇss ᴛʀʏ ᴀɢᴀɪɴ."
                         ),
                         reply_markup=join_request_buttons(
                             client,
@@ -680,8 +680,11 @@ async def back_home_callback(client, callback_query):
 
     text = (
         f"ʜᴀɪ 👋 {user.mention}!\n\n"
+        
         "ʏᴏᴜʀ ғᴀᴠᴏʀɪᴛᴇ ᴍᴏᴠɪᴇs & sᴇʀɪᴇs ᴀʀᴇ ᴊᴜsᴛ ᴀ sᴇᴀʀᴄʜ ᴀᴡᴀʏ!\n\n"
+        
         "sᴇᴀʀᴄʜ • ғɪɴᴅ • ᴇɴᴊᴏʏ"
+        
         "ᴘᴏᴡᴇʀᴇᴅ ʙʏ : ⟬ ᴛᴇᴀᴍ ғʟɪᴍ ᴍᴀxx ⟭"
     )
 
