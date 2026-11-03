@@ -563,43 +563,42 @@ text = (
 
     "───────────────"
 )
-    # SHOW SUGGESTIONS
 
-    if movielist:
+# SHOW SUGGESTIONS
 
-        text += (
-            "\n───────────────\n"
-            "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n\n"
-        )
+if movielist:
 
-        for index, movie_name in enumerate(
-            movielist,
-            start=1
-        ):
-
-            text += (
-                f"<b>{index}.</b> "
-                f"<code>{escape(movie_name)}</code>\n"
-            )
-
-    else:
-
-        text += (
-            "\n━━━━━━━━━━━━━━━━━━\n"
-            "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n"
-            "<i>No suggestions available right now.</i>\n"
-        )
-
-    # SEND SPELL CHECK MESSAGE
-
-    await msg.reply_text(
-        text=text,
-        reply_markup=google_button,
-        reply_to_message_id=msg.id,
-        parse_mode=enums.ParseMode.HTML,
-        disable_web_page_preview=True
+    text += (
+        "\n───────────────\n"
+        "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n\n"
     )
 
+    for index, movie_name in enumerate(
+        movielist,
+        start=1
+    ):
+        text += (
+            f"<b>{index}.</b> "
+            f"<code>{escape(movie_name)}</code>\n"
+        )
+
+else:
+
+    text += (
+        "\n━━━━━━━━━━━━━━━━━━\n"
+        "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n"
+        "<i>No suggestions available right now.</i>\n"
+    )
+
+# SEND SPELL CHECK MESSAGE
+
+await msg.reply_text(
+    text=text,
+    reply_markup=google_button,
+    reply_to_message_id=msg.id,
+    parse_mode=enums.ParseMode.HTML,
+    disable_web_page_preview=True
+)
 
 # =========================
 # AUTO FILTER
