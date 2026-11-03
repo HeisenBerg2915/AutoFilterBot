@@ -532,73 +532,71 @@ async def advantage_spell_chok(client, msg):
             if len(movielist) >= 6:
                 break
 
-# SPELL CHECK MESSAGE
+    # SPELL CHECK MESSAGE
 
-text = (
-    "<blockquote>"
-    "<b>🚫 ᴏᴛᴛ ɴ/ᴀ ➪ ᴄʜᴇᴄᴋ sᴘᴇʟʟ 🚫</b>\n\n"
+    text = (
+        "<blockquote>"
+        "<b>🚫 ᴏᴛᴛ ɴ/ᴀ ➪ ᴄʜᴇᴄᴋ sᴘᴇʟʟ 🚫</b>\n\n"
 
-    "───────────────\n"
+        "───────────────\n"
 
-    "<b>➳ ᴍᴏᴠɪᴇ ᴏᴛᴛ ഇറങ്ങിയിട്ടില്ല കേട്ടോ അഥവാ ഇറങ്ങിയിട്ടുണ്ടെങ്കിൽ "
-    "താഴെ തന്നിരിക്കുന്ന ശരിയായ spelling ഉപയോഗിച്ച് search തുടരുക.</b>\n"
+        "<b>➳ ᴍᴏᴠɪᴇ ᴏᴛᴛ ഇറങ്ങിയിട്ടില്ല കേട്ടോ അഥവാ ഇറങ്ങിയിട്ടുണ്ടെങ്കിൽ "
+        "താഴെ തന്നിരിക്കുന്ന ശരിയായ spelling ഉപയോഗിച്ച് search തുടരുക.</b>\n"
 
-    "───────────────\n"
+        "───────────────\n"
 
-    "<b>➳ ᴛʜᴇ ᴍᴏᴠɪᴇ ʜᴀs ɴᴏᴛ ʙᴇᴇɴ ʀᴇʟᴇᴀsᴇᴅ "
-    "ᴏɴ ᴀɴʏ ᴏᴛᴛ ᴘʟᴀᴛғᴏʀᴍ ʏᴇᴛ.</b>\n\n"
+        "<b>➳ ᴛʜᴇ ᴍᴏᴠɪᴇ ʜᴀs ɴᴏᴛ ʙᴇᴇɴ ʀᴇʟᴇᴀsᴇᴅ "
+        "ᴏɴ ᴀɴʏ ᴏᴛᴛ ᴘʟᴀᴛғᴏʀᴍ ʏᴇᴛ.</b>\n\n"
 
-    "<b>➳ ɪғ ɪᴛ ʜᴀs ʙᴇᴇɴ ʀᴇʟᴇᴀsᴇᴅ, ᴘʟᴇᴀsᴇ ᴛʀʏ "
-    "sᴇᴀʀᴄʜɪɴɢ ᴀɢᴀɪɴ ᴜsɪɴɢ ᴛʜᴇ ᴄᴏʀʀᴇᴄᴛ sᴘᴇʟʟɪɴɢ "
-    "ᴘʀᴏᴠɪᴅᴇᴅ ʙᴇʟᴏᴡ.</b>\n\n"
+        "<b>➳ ɪғ ɪᴛ ʜᴀs ʙᴇᴇɴ ʀᴇʟᴇᴀsᴇᴅ, ᴘʟᴇᴀsᴇ ᴛʀʏ "
+        "sᴇᴀʀᴄʜɪɴɢ ᴀɢᴀɪɴ ᴜsɪɴɢ ᴛʜᴇ ᴄᴏʀʀᴇᴄᴛ sᴘᴇʟʟɪɴɢ "
+        "ᴘʀᴏᴠɪᴅᴇᴅ ʙᴇʟᴏᴡ.</b>\n\n"
 
-    "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴄᴀɴɴᴏᴛ ғɪɴᴅ ɪᴛ, "
-    "ᴘʟᴇᴀsᴇ ᴜsᴇ ᴛʜᴇ ɢᴏᴏɢʟᴇ ʙᴜᴛᴛᴏɴ.</b>\n\n"
+        "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴄᴀɴɴᴏᴛ ғɪɴᴅ ɪᴛ, "
+        "ᴘʟᴇᴀsᴇ ᴜsᴇ ᴛʜᴇ ɢᴏᴏɢʟᴇ ʙᴜᴛᴛᴏɴ.</b>\n\n"
 
-    "<b>➳ എന്നിട്ടും സിനിമ കിട്ടിയില്ലെങ്കിൽ "
-    "ɴᴏᴛɪғʏ ᴍᴇ ʙᴜᴛᴛᴏɴ ᴜsᴇ ചെയ്യുക.</b>\n\n"
+        "<b>➳ എന്നിട്ടും സിനിമ കിട്ടിയില്ലെങ്കിൽ "
+        "ɴᴏᴛɪғʏ ᴍᴇ ʙᴜᴛᴛᴏɴ ᴜsᴇ ചെയ്യുക.</b>\n\n"
 
-    "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴅᴏɴ'ᴛ ɢᴇᴛ ᴛʜᴇ ᴍᴏᴠɪᴇ, "
-    "ᴜsᴇ ᴛʜᴇ 'ɴᴏᴛɪғʏ ᴍᴇ' ʙᴜᴛᴛᴏɴ.</b>\n"
+        "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴅᴏɴ'ᴛ ɢᴇᴛ ᴛʜᴇ ᴍᴏᴠɪᴇ, "
+        "ᴜsᴇ ᴛʜᴇ 'ɴᴏᴛɪғʏ ᴍᴇ' ʙᴜᴛᴛᴏɴ.</b>\n"
 
-    "───────────────"
-)
-
-# SHOW SUGGESTIONS
-
-if movielist:
-
-    text += (
-        "\n───────────────\n"
-        "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n\n"
+        "───────────────"
     )
 
-    for index, movie_name in enumerate(
-        movielist,
-        start=1
-    ):
+    # SHOW SUGGESTIONS
+
+    if movielist:
+
         text += (
-            f"<b>{index}.</b> "
-            f"<code>{escape(movie_name)}</code>\n"
+            "\n───────────────\n"
+            "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n\n"
         )
 
-else:
+        for index, movie_name in enumerate(movielist, start=1):
 
-    text += (
-        "\n━━━━━━━━━━━━━━━━━━\n"
-        "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n"
-        "<i>No suggestions available right now.</i>\n"
+            text += (
+                f"<b>{index}.</b> "
+                f"<code>{escape(movie_name)}</code>\n"
+            )
+
+    else:
+
+        text += (
+            "\n━━━━━━━━━━━━━━━━━━\n"
+            "💡 <b>sᴜɢɢᴇsᴛɪᴏɴs</b>\n"
+            "<i>No suggestions available right now.</i>\n"
+        )
+
+    # SEND SPELL CHECK MESSAGE
+
+    await msg.reply_text(
+        text=text,
+        reply_markup=google_button,
+        reply_to_message_id=msg.id,
+        parse_mode=enums.ParseMode.HTML,
+        disable_web_page_preview=True
     )
-
-# SEND SPELL CHECK MESSAGE
-
-await msg.reply_text(
-    text=text,
-    reply_markup=google_button,
-    reply_to_message_id=msg.id,
-    parse_mode=enums.ParseMode.HTML,
-    disable_web_page_preview=True
-)
 
 # =========================
 # AUTO FILTER
