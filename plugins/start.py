@@ -610,8 +610,11 @@ async def start_command(client, message):
 
     text = (
         f"ʜᴀɪ 👋 {user.mention}!\n\n"
+        
         "ʏᴏᴜʀ ғᴀᴠᴏʀɪᴛᴇ ᴍᴏᴠɪᴇs & sᴇʀɪᴇs ᴀʀᴇ ᴊᴜsᴛ ᴀ sᴇᴀʀᴄʜ ᴀᴡᴀʏ!\n\n"
+        
         "sᴇᴀʀᴄʜ • ғɪɴᴅ • ᴇɴᴊᴏʏ"
+        
         "ᴘᴏᴡᴇʀᴇᴅ ʙʏ : ⟬ ᴛᴇᴀᴍ ғʟɪᴍ ᴍᴀxx ⟭"
     )
 
