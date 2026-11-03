@@ -459,7 +459,7 @@ async def advantage_spell_chok(client, msg):
     google_button = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "🔔 NOTIFY ME",
+                "ɴᴏᴛɪғʏ ᴍᴇ",
                 url=notify_link
             )
         ],
@@ -554,6 +554,9 @@ async def advantage_spell_chok(client, msg):
 
         "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴄᴀɴɴᴏᴛ ғɪɴᴅ ɪᴛ, "
         "ᴘʟᴇᴀsᴇ ᴜsᴇ ᴛʜᴇ ɢᴏᴏɢʟᴇ ʙᴜᴛᴛᴏɴ.</b>"
+
+        "<b>എന്നിട്ടും സിനിമ കിട്ടിയില്ലെങ്കിൽ ɴᴏᴛɪғʏ ᴍᴇ ʙᴜᴛᴛᴏɴ ᴜsᴇ ചെയ്യുക</b>"
+        "<b>Iғ ʏᴏᴜ sᴛɪʟʟ ᴅᴏɴ'ᴛ ɢᴇᴛ ᴛʜᴇ ᴍᴏᴠɪᴇ, ᴜsᴇ ᴛʜᴇ 'ɴᴏᴛɪғʏ ᴍᴇ' ʙᴜᴛᴛᴏɴ.</b>"
     )
 
     # SHOW SUGGESTIONS
