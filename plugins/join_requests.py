@@ -5,8 +5,8 @@ from database import reqone, reqtwo
 
 
 # CHANNEL IDs
-CHANNEL_1_ID = -1004393586601
-CHANNEL_2_ID = -1003951518872
+CHANNEL_1_ID = -1003907608959
+CHANNEL_2_ID = -1003779527451
 
 
 @Client.on_chat_join_request()
