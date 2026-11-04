@@ -39,41 +39,57 @@ DATABASES = [
     (files_col3, "3")
 ]
 
-
 # =========================
 # BUILD SEARCH FILTER
 # =========================
 
 def build_search_filter(query):
+    """
+    Flexible movie title matching.
+    Supports:
+    - Straight and curly apostrophes
+    - Dogs / Dog's / Dog
+    - Dots, hyphens, underscores and spaces
+    - Case-insensitive search
+    """
 
     query = query.strip()
 
     if not query:
         return None
 
-    words = re.findall(
-        r"[^\W_]+",
-        query,
-        flags=re.UNICODE
-    )
+    words = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
 
     if not words:
         return None
 
-    if len(words) == 1:
-        pattern = (
-            r"(^|[\W_]+)"
-            + re.escape(words[0])
-            + r"($|[\W_]+)"
-        )
-    else:
-        pattern = (
-            r"^\s*"
-            + r"[\W_]+".join(
-                re.escape(word) for word in words
-            )
-            + r"($|[\W_])"
-        )
+    patterns = []
+
+    for word in words:
+        escaped = re.escape(word)
+
+        # Dogs -> Dog, Dogs, Dog's, Dog’s
+        if (
+            len(word) > 3
+            and word.lower().endswith("s")
+            and not word.lower().endswith(("ss", "us", "is"))
+        ):
+            base = re.escape(word[:-1])
+            escaped = base + r"(?:s|['’]s)?"
+
+        # Dog -> Dog, Dogs, Dog's, Dog’s
+        elif len(word) > 3 and not word.lower().endswith("s"):
+            escaped = re.escape(word) + r"(?:s|['’]s)?"
+
+        patterns.append(escaped)
+
+    separator = r"[\W_]*"
+
+    pattern = (
+        r"(^|[\W_]+)"
+        + separator.join(patterns)
+        + r"($|[\W_]+)"
+    )
 
     return {
         "file_name": {
@@ -81,7 +97,6 @@ def build_search_filter(query):
             "$options": "i"
         }
     }
-
 
 # =========================
 # FILE BUTTONS
