@@ -56,6 +56,9 @@ def build_search_filter(query):
 
     query = query.strip()
 
+    # Normalize apostrophe variations
+    query = re.sub(r"['’]", "", query)
+
     if not query:
         return None
 
