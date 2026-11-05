@@ -43,70 +43,69 @@ DATABASES = [
 # BUILD SEARCH FILTER
 # =========================
 
+
 def build_search_filter(query):
     """
-    Smart search:
-    - Case insensitive
-    - Spaces, dots, underscores and hyphens
-    - Apostrophe variations
-    - Dog / Dogs / Dog's matching
+    V2bots-style flexible search.
+    Supports:
+    - I'm Game / Im Game / I’m Game
+    - Case-insensitive search
+    - Spaces, dots, underscores, hyphens
     - Extra words between search terms
-    - Search in file_name and caption
+    - File name and caption matching
     """
 
-    query = query.strip()
+    query = (query or "").strip()
 
-    # Normalize apostrophe variations
-    query = re.sub(r"['’]", "", query)
+    # Normalize apostrophes
+    query = re.sub(r"['‘’`]", "", query)
+
+    # Normalize separators
+    query = re.sub(r"[\W_]+", " ", query, flags=re.UNICODE)
+
+    query = re.sub(r"\s+", " ", query).strip()
 
     if not query:
         return None
 
-    words = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
+    words = re.findall(
+        r"[^\W_]+",
+        query,
+        flags=re.UNICODE
+    )
 
     if not words:
         return None
 
-    patterns = []
+    # Single-word search
+    if len(words) == 1:
+        raw_pattern = (
+            r"(\b|[.\+\-_])"
+            + re.escape(words[0])
+            + r"(\b|[.\+\-_])"
+        )
 
-    for word in words:
-        escaped = re.escape(word)
-
-        if (
-            len(word) > 3
-            and word.lower().endswith("s")
-            and not word.lower().endswith(("ss", "us", "is"))
-        ):
-            base = re.escape(word[:-1])
-            escaped = base + r"(?:s|['’]s)?"
-
-        elif len(word) > 3 and not word.lower().endswith("s"):
-            escaped = re.escape(word) + r"(?:s|['’]s)?"
-
-        patterns.append(escaped)
-
-    if len(patterns) == 1:
-        separator = r""
     else:
-        separator = r"(?:[\W_]+[\w]+)*?[\W_]+"
-
-    pattern = (
-        r"(^|[\W_]+)"
-        + separator.join(patterns)
-        + r"($|[\W_]+)"
-    )
+        # Allow extra words between search terms
+        raw_pattern = (
+            re.escape(words[0])
+            + r".*?"
+            + r".*?".join(
+                re.escape(word) for word in words[1:]
+            )
+        )
 
     return {
         "$or": [
             {
                 "file_name": {
-                    "$regex": pattern,
+                    "$regex": raw_pattern,
                     "$options": "i"
                 }
             },
             {
                 "caption": {
-                    "$regex": pattern,
+                    "$regex": raw_pattern,
                     "$options": "i"
                 }
             }
