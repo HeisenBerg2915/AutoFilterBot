@@ -46,27 +46,18 @@ DATABASES = [
 
 def build_search_filter(query):
     """
-    V2bots-style flexible search.
-    Supports:
+    Flexible search:
     - I'm Game / Im Game / I’m Game
-    - Case-insensitive search
-    - Spaces, dots, underscores, hyphens
-    - Extra words between search terms
-    - File name and caption matching
+    - Words in any order
+    - Case insensitive
+    - Search file_name and caption
+    - Match all query words
     """
 
-    query = (query or "").strip()
+    query = (query or "").strip().lower()
 
-    # Normalize apostrophes
+    # Normalize apostrophes in the search query
     query = re.sub(r"['‘’`]", "", query)
-
-    # Normalize separators
-    query = re.sub(r"[\W_]+", " ", query, flags=re.UNICODE)
-
-    query = re.sub(r"\s+", " ", query).strip()
-
-    if not query:
-        return None
 
     words = re.findall(
         r"[^\W_]+",
@@ -77,40 +68,43 @@ def build_search_filter(query):
     if not words:
         return None
 
-    # Single-word search
-    if len(words) == 1:
-        raw_pattern = (
-            r"(\b|[.\+\-_])"
-            + re.escape(words[0])
-            + r"(\b|[.\+\-_])"
+    conditions = []
+
+    for word in words:
+
+        # Special matching for Im / I'm
+        if word == "im":
+            word_pattern = r"i['’]?m"
+        else:
+            word_pattern = re.escape(word)
+
+        pattern = (
+            r"(^|[\W_])"
+            + word_pattern
+            + r"($|[\W_])"
         )
 
-    else:
-        # Allow extra words between search terms
-        raw_pattern = (
-            re.escape(words[0])
-            + r".*?"
-            + r".*?".join(
-                re.escape(word) for word in words[1:]
-            )
-        )
+        conditions.append({
+            "$or": [
+                {
+                    "file_name": {
+                        "$regex": pattern,
+                        "$options": "i"
+                    }
+                },
+                {
+                    "caption": {
+                        "$regex": pattern,
+                        "$options": "i"
+                    }
+                }
+            ]
+        })
 
     return {
-        "$or": [
-            {
-                "file_name": {
-                    "$regex": raw_pattern,
-                    "$options": "i"
-                }
-            },
-            {
-                "caption": {
-                    "$regex": raw_pattern,
-                    "$options": "i"
-                }
-            }
-        ]
+        "$and": conditions
     }
+
 
 
 # =========================
