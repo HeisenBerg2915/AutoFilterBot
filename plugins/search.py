@@ -39,24 +39,15 @@ DATABASES = [
     (files_col3, "3")
 ]
 
+
 # =========================
 # BUILD SEARCH FILTER
 # =========================
 
-
 def build_search_filter(query):
-    """
-    Flexible search:
-    - I'm Game / Im Game / I’m Game
-    - Words in any order
-    - Case insensitive
-    - Search file_name and caption
-    - Match all query words
-    """
 
     query = (query or "").strip().lower()
 
-    # Normalize apostrophes in the search query
     query = re.sub(r"['‘’`]", "", query)
 
     words = re.findall(
@@ -72,7 +63,6 @@ def build_search_filter(query):
 
     for word in words:
 
-        # Special matching for Im / I'm
         if word == "im":
             word_pattern = r"i['’]?m"
         else:
@@ -104,7 +94,6 @@ def build_search_filter(query):
     return {
         "$and": conditions
     }
-
 
 
 # =========================
@@ -359,8 +348,6 @@ async def show_page(
     if not search_filter:
         return
 
-    # PARALLEL DATABASE COUNT
-
     total = await count_search_results(search_filter)
 
     total_pages = max(
@@ -455,38 +442,11 @@ async def advantage_spell_chok(client, msg):
     if not cleaned_query:
         cleaned_query = mv_rqst.strip()
 
-    # CREATE NOTIFY SESSION
-
-    notify_session = uuid4().hex[:12]
-
-    await search_sessions_col.insert_one({
-        "_id": notify_session,
-        "query": cleaned_query,
-        "chat_id": msg.chat.id,
-        "created_at": datetime.utcnow(),
-        "kind": "notify"
-    })
-
-    # PRIVATE BOT DEEP LINK
-
-    bot_username = client.me.username
-
-    notify_link = (
-        f"https://t.me/{bot_username}"
-        f"?start=notify_{notify_session}"
-    )
-
-    # GOOGLE + NOTIFY BUTTONS
+    # GOOGLE SPELL CHECK BUTTON ONLY
 
     reqst_gle = quote_plus(mv_rqst)
 
     google_button = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                "ɴᴏᴛɪғʏ ᴍᴇ",
-                url=notify_link
-            )
-        ],
         [
             InlineKeyboardButton(
                 "🔎 ᴄʜᴇᴄᴋ sᴘᴇʟʟ (ɢᴏᴏɢʟᴇ) 🔎",
@@ -579,12 +539,6 @@ async def advantage_spell_chok(client, msg):
         "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴄᴀɴɴᴏᴛ ғɪɴᴅ ɪᴛ, "
         "ᴘʟᴇᴀsᴇ ᴜsᴇ ᴛʜᴇ ɢᴏᴏɢʟᴇ ʙᴜᴛᴛᴏɴ.</b>\n\n"
 
-        "<b>➳ എന്നിട്ടും സിനിമ കിട്ടിയില്ലെങ്കിൽ "
-        "ɴᴏᴛɪғʏ ᴍᴇ ʙᴜᴛᴛᴏɴ ᴜsᴇ ചെയ്യുക.</b>\n\n"
-
-        "<b>➳ ɪғ ʏᴏᴜ sᴛɪʟʟ ᴅᴏɴ'ᴛ ɢᴇᴛ ᴛʜᴇ ᴍᴏᴠɪᴇ, "
-        "ᴜsᴇ ᴛʜᴇ 'ɴᴏᴛɪғʏ ᴍᴇ' ʙᴜᴛᴛᴏɴ.</b>\n"
-
         "───────────────"
     )
 
@@ -621,6 +575,7 @@ async def advantage_spell_chok(client, msg):
         parse_mode=enums.ParseMode.HTML,
         disable_web_page_preview=True
     )
+
 
 # =========================
 # AUTO FILTER
@@ -709,7 +664,7 @@ async def auto_filter(client, message):
         query
     )
 
-    # FIRST PAGE - ONLY 8 FILES
+    # FIRST PAGE - 10 FILES
 
     first_page_results = results[:PAGE_SIZE]
 
